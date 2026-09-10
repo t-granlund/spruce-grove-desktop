@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Spruce Grove</title>
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div class="brand">
+          <span class="wordmark">SPRUCE GROVE</span>
+          <span class="sub">desktop shell · CLI-native</span>
+        </div>
+        <div class="env">
+          <label class="field">
+            <span>working dir</span>
+            <input id="cwd" type="text" spellcheck="false" />
+          </label>
+          <span id="cli-version" class="pill" title="spruce-grove CLI">cli: ...</span>
+        </div>
+      </header>
+
+      <section id="transcript" class="transcript" aria-live="polite">
+        <div class="empty" id="empty-state">
+          <p class="empty-title">The grove is listening.</p>
+          <p>Every prompt runs through the groomed CLI in the working dir above.
+            Nothing runs in this shell — the harness does all the thinking.</p>
+        </div>
+      </section>
+
+      <footer class="composer">
+        <div id="status" class="status">idle</div>
+        <div class="row">
+          <textarea
+            id="prompt"
+            rows="3"
+            placeholder="Ask the grove... (Enter to send, Shift+Enter for newline)"
+          ></textarea>
+          <div class="actions">
+            <button id="mic" class="btn ghost" disabled title="Dictation-to-agent loop: planned (bead 5al.6 acceptance)">dictation soon</button>
+            <button id="cancel" class="btn ghost" disabled>cancel</button>
+            <button id="send" class="btn solid">send</button>
+          </div>
+        </div>
+      </footer>
+    </main>
+    <script src="main.js"></script>
+  </body>
+</html>
