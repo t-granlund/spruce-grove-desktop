@@ -82,3 +82,13 @@ textarea:focus { outline: none; border-color: var(--glow); }
 .btn.solid:disabled { background: var(--line); border-color: var(--line); color: var(--text-dim); cursor: default; }
 .btn.ghost:disabled { color: var(--text-dim); cursor: default; }
 .btn:not(:disabled):hover { border-color: var(--mint); }
+.btn.mic { min-width: 96px; font-family: var(--mono); font-size: 12px; }
+.btn.mic.rec {
+  border-color: #c96f4a; color: #e8b29a; font-weight: 600;
+  animation: rec-pulse 1.4s ease-in-out infinite;
+}
+.btn.mic:disabled { color: var(--text-dim); cursor: default; }
+@keyframes rec-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(201, 111, 74, 0.45); }
+  50% { box-shadow: 0 0 0 6px rgba(201, 111, 74, 0.12); }
+}

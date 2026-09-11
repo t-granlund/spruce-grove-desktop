@@ -206,6 +206,51 @@ fn grove_cancel(state: State<'_, ActiveRun>) -> Result<(), String> {
     }
 }
 
+/// Persist a dictation recording (webm/opus bytes from MediaRecorder) to a
+/// temp file and return its path. The webview cannot touch the filesystem
+/// itself and the shell stays thin: bytes in, path out.
+#[tauri::command]
+fn grove_save_recording(bytes: Vec<u8>) -> Result<String, String> {
+    let dir = std::env::temp_dir().join("spruce-grove-dictation");
+    std::fs::create_dir_all(&dir).map_err(|e| format!("temp dir: {e}"))?;
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map_err(|e| format!("clock: {e}"))?
+        .as_millis();
+    let path = dir.join(format!("dictation-{stamp}.webm"));
+    std::fs::write(&path, bytes).map_err(|e| format!("write: {e}"))?;
+    Ok(path.to_string_lossy().to_string())
+}
+
+/// Transcribe a recorded file through the CLI's own rig
+/// (`spruce-grove --transcribe <file>` — the Mockingbird plugin's headless
+/// verb). The shell never re-implements whisper: it launches the same
+/// resolution order as grove_send and returns the transcript text.
+#[tauri::command]
+fn grove_transcribe(file: String) -> Result<String, String> {
+    let (program, prefix) = cli_command();
+    let output = Command::new(&program)
+        .args(&prefix)
+        .arg("--transcribe")
+        .arg(&file)
+        .output()
+        .map_err(|e| format!("cannot launch {program}: {e}"))?;
+    if !output.status.success() {
+        let err = String::from_utf8_lossy(&output.stderr);
+        return Err(if err.trim().is_empty() {
+            format!("transcribe failed ({})", output.status)
+        } else {
+            err.trim().to_string()
+        });
+    }
+    let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if text.is_empty() {
+        Err("transcript came back empty".to_string())
+    } else {
+        Ok(text)
+    }
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(ActiveRun(Mutex::new(None)))
@@ -213,7 +258,9 @@ fn main() {
             grove_default_cwd,
             grove_version,
             grove_send,
-            grove_cancel
+            grove_cancel,
+            grove_save_recording,
+            grove_transcribe
         ])
         .run(tauri::generate_context!())
         .expect("error while running spruce-grove desktop");

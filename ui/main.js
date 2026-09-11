@@ -12,6 +12,7 @@ const els = {
   prompt: document.getElementById("prompt"),
   send: document.getElementById("send"),
   cancel: document.getElementById("cancel"),
+  mic: document.getElementById("mic"),
   status: document.getElementById("status"),
 };
 
@@ -20,9 +21,18 @@ const state = {
   resume: false, // first prompt starts fresh; later turns quick-resume
 };
 
-els.cwd.value =
-  localStorage.getItem("grove.cwd") || `${location.host ? "" : ""}${"~"}`;
-els.cwd.value = localStorage.getItem("grove.cwd") || defaultCwd();
+async function initCwd() {
+  const saved = localStorage.getItem("grove.cwd");
+  if (saved) {
+    els.cwd.value = saved;
+    return;
+  }
+  try {
+    els.cwd.value = await invoke("grove_default_cwd");
+  } catch {
+    els.cwd.value = defaultCwd();
+  }
+}
 
 function defaultCwd() {
   // The webview cannot read $HOME; seed with the fork checkout and let the
@@ -119,6 +129,67 @@ els.prompt.addEventListener("keydown", (event) => {
     sendPrompt();
   }
 });
+
+/* ---------------- dictation (mic -> local whisper -> prompt) ----------------
+   The pause-edit-adapt loop, desktop edition: record, stop, and the
+   transcript lands in the EDITABLE prompt box — tweak it, then send. All
+   transcription is on-device via the CLI's --transcribe verb (Mockingbird
+   plugin's whisper rig); the shell only ferries bytes. */
+
+const dictation = { recording: false, recorder: null, chunks: [], stream: null };
+
+async function toggleDictation() {
+  if (dictation.recording) {
+    dictation.recorder?.stop(); // onstop -> finishDictation
+    return;
+  }
+  try {
+    dictation.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch (err) {
+    els.status.textContent = `mic unavailable: ${err.name || err}`;
+    return;
+  }
+  dictation.chunks = [];
+  dictation.recorder = new MediaRecorder(dictation.stream);
+  dictation.recorder.ondataavailable = (e) => {
+    if (e.data && e.data.size) dictation.chunks.push(e.data);
+  };
+  dictation.recorder.onstop = finishDictation;
+  dictation.recorder.start();
+  dictation.recording = true;
+  els.mic.textContent = "stop";
+  els.mic.classList.add("rec");
+  els.status.textContent = "recording — click stop when the thought is out";
+}
+
+async function finishDictation() {
+  dictation.recording = false;
+  els.mic.classList.remove("rec");
+  els.mic.textContent = "…";
+  els.mic.disabled = true;
+  dictation.stream?.getTracks().forEach((t) => t.stop());
+  dictation.stream = null;
+  const blob = new Blob(dictation.chunks, {
+    type: dictation.recorder?.mimeType || "audio/webm",
+  });
+  dictation.recorder = null;
+  try {
+    const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()));
+    const file = await invoke("grove_save_recording", { bytes });
+    els.status.textContent = "transcribing on-device (local whisper)...";
+    const text = await invoke("grove_transcribe", { file });
+    els.prompt.value = els.prompt.value ? `${els.prompt.value}\n${text}` : text;
+    els.status.textContent = "transcript in the prompt — edit it, then send";
+    els.prompt.focus();
+  } catch (err) {
+    els.status.textContent = `dictation failed: ${String(err).split("\n")[0]}`;
+  } finally {
+    els.mic.disabled = false;
+    els.mic.textContent = "record";
+  }
+}
+
+els.mic.addEventListener("click", toggleDictation);
 
 initCwd();
 refreshVersion();

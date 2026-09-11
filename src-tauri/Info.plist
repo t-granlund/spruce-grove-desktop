@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+  <dict>
+    <!-- Merged into the generated app Info.plist at build time (tauri-build
+         picks this up via bundle.macOS.infoPlist in tauri.conf.json).
+         Without this key a packaged .app is denied microphone access and
+         dictation silently fails; `npm run dev` inherits the terminal's
+         grant instead. Bead SPRUCE-GROVE-OS-qz6. -->
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Spruce Grove records voice prompts locally and transcribes them on-device with your local whisper model. Audio never leaves this Mac except when you choose to send a prompt to your configured model provider.</string>
+  </dict>
+</plist>
