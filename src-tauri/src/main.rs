@@ -7,10 +7,12 @@
 
 use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, Stdio};
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
+
+mod acp;
 
 struct ActiveRun(Mutex<Option<Child>>);
 
@@ -251,16 +253,47 @@ fn grove_transcribe(file: String) -> Result<String, String> {
     }
 }
 
+// ---------------------------- ACP (structured live sessions) -------------
+
+#[tauri::command]
+fn grove_acp_start(
+    state: State<'_, acp::AcpState>,
+    app: AppHandle,
+    cwd: String,
+) -> Result<serde_json::Value, String> {
+    let (session_id, model) = acp::start(&state, &cwd, &app)?;
+    Ok(serde_json::json!({ "sessionId": session_id, "model": model }))
+}
+
+#[tauri::command]
+fn grove_acp_prompt(
+    state: State<'_, acp::AcpState>,
+    app: AppHandle,
+    session_id: String,
+    text: String,
+) -> Result<(), String> {
+    acp::prompt(&state, &session_id, &text, &app)
+}
+
+#[tauri::command]
+fn grove_acp_cancel(state: State<'_, acp::AcpState>, session_id: String) -> Result<(), String> {
+    acp::cancel(&state, &session_id)
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(ActiveRun(Mutex::new(None)))
+        .manage(acp::AcpState::new())
         .invoke_handler(tauri::generate_handler![
             grove_default_cwd,
             grove_version,
             grove_send,
             grove_cancel,
             grove_save_recording,
-            grove_transcribe
+            grove_transcribe,
+            grove_acp_start,
+            grove_acp_prompt,
+            grove_acp_cancel
         ])
         .run(tauri::generate_context!())
         .expect("error while running spruce-grove desktop");

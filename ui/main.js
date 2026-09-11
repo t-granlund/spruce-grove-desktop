@@ -1,5 +1,11 @@
 /* Thin webview controller: all agent work happens in the CLI child process.
-   Uses the global Tauri bridge (withGlobalTauri) — no bundler required. */
+   Uses the global Tauri bridge (withGlobalTauri) — no bundler required.
+
+   Two transports, chosen at runtime:
+   * ACP (preferred): `spruce-grove --acp` — structured JSON-RPC stream with
+     message deltas, thinking, tool calls, per-turn token usage.
+   * Legacy fallback: headless `-p` line scraping (grove_send), kept for
+     durability when ACP cannot start. */
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
@@ -7,6 +13,7 @@ const { listen } = window.__TAURI__.event;
 const els = {
   cwd: document.getElementById("cwd"),
   cliVersion: document.getElementById("cli-version"),
+  mode: document.getElementById("mode"),
   transcript: document.getElementById("transcript"),
   empty: document.getElementById("empty-state"),
   prompt: document.getElementById("prompt"),
@@ -18,8 +25,11 @@ const els = {
 
 const state = {
   busy: false,
-  resume: false, // first prompt starts fresh; later turns quick-resume
+  resume: false, // legacy path: first prompt starts fresh; later turns quick-resume
 };
+
+const acp = { ready: false, sessionId: null, model: null, cwd: null };
+const toolEls = new Map(); // toolCallId -> { box, chip, pre }
 
 async function initCwd() {
   const saved = localStorage.getItem("grove.cwd");
@@ -81,6 +91,139 @@ function appendLine(stream, line) {
   scrollDown();
 }
 
+/* ------------------------------ ACP streaming ---------------------------- */
+
+let acpAgentPre = null;
+let acpThoughtPre = null;
+let turnUsage = null;
+
+function acpEnsureAgentPre() {
+  if (!acpAgentPre) {
+    acpThoughtPre = null;
+    acpAgentPre = addMessage("agent", `grove · ${acp.model || "agent"}`);
+  }
+  return acpAgentPre;
+}
+
+function acpAppendText(text) {
+  if (!text) return;
+  const span = document.createElement("span");
+  span.textContent = text;
+  acpEnsureAgentPre().appendChild(span);
+  scrollDown();
+}
+
+function acpAppendThought(text) {
+  if (!text) return;
+  if (!acpThoughtPre) {
+    acpThoughtPre = addMessage("thought", "cedar · thinking");
+  }
+  const span = document.createElement("span");
+  span.textContent = text;
+  acpThoughtPre.appendChild(span);
+  scrollDown();
+}
+
+function acpToolCard(update) {
+  const id = update.toolCallId || update.title || JSON.stringify(update).slice(0, 40);
+  let card = toolEls.get(id);
+  if (!card) {
+    els.empty?.remove();
+    const box = document.createElement("div");
+    box.className = "msg tool";
+    const head = document.createElement("div");
+    head.className = "tool-head";
+    const title = document.createElement("span");
+    title.className = "tool-title";
+    title.textContent = update.title || update.kind || "tool";
+    const chip = document.createElement("span");
+    chip.className = "chip";
+    chip.textContent = update.status || "pending";
+    head.append(title, chip);
+    const pre = document.createElement("pre");
+    box.append(head, pre);
+    els.transcript.appendChild(box);
+    card = { box, chip, pre };
+    toolEls.set(id, card);
+  }
+  card.chip.textContent = update.status || card.chip.textContent;
+  card.chip.dataset.status = update.status || "pending";
+  const input = update.rawInput ?? update.input;
+  if (input && !card.pre.dataset.hasInput) {
+    card.pre.textContent = JSON.stringify(input).slice(0, 300);
+    card.pre.dataset.hasInput = "1";
+  }
+  scrollDown();
+}
+
+async function handleAcpEvent(event) {
+  const { kind, data } = event.payload;
+  switch (kind) {
+    case "ready": {
+      acp.ready = true;
+      acp.sessionId = data.sessionId;
+      acp.model = data.model;
+      acp.cwd = els.cwd.value.trim();
+      els.mode.textContent = `ACP · ${data.model || "live"}`;
+      els.mode.dataset.state = "acp";
+      break;
+    }
+    case "chunk":
+      acpAppendText(data && data.update ? (data.update.content || {}).text : "");
+      break;
+    case "thought":
+      acpAppendThought(data && data.update ? (data.update.content || {}).text : "");
+      break;
+    case "tool":
+      if (data && data.update) acpToolCard(data.update);
+      break;
+    case "permission":
+      if (data && data.params) {
+        const line = addMessage("permission", "permission · auto-allowed");
+        line.textContent = (data.params.toolCall?.title || data.params.toolCall || "")
+          .toString()
+          .slice(0, 160);
+      }
+      break;
+    case "turn-end": {
+      turnUsage = data?.result?.usage || null;
+      const toks = turnUsage ? ` · ${turnUsage.totalTokens.toLocaleString()} tok` : "";
+      const why = data?.result?.stopReason || (data?.ok === false ? "error" : "done");
+      if (data && data.ok === false) {
+        addMessage("agent", "grove · error").textContent = String(data.error || "turn failed");
+      }
+      acpAgentPre = null;
+      acpThoughtPre = null;
+      setBusy(false, `done${toks} · ${why}`);
+      break;
+    }
+    default:
+      break;
+  }
+}
+
+async function startAcp(cwd) {
+  els.mode.textContent = "connecting…";
+  els.mode.dataset.state = "connecting";
+  try {
+    const res = await invoke("grove_acp_start", { cwd });
+    acp.sessionId = res.sessionId;
+    acp.model = res.model;
+    acp.cwd = cwd;
+    acp.ready = true;
+    els.mode.textContent = `ACP · ${res.model || "live"}`;
+    els.mode.dataset.state = "acp";
+    els.status.textContent = "grove ready — structured live session";
+  } catch (err) {
+    acp.ready = false;
+    els.mode.textContent = "legacy line mode";
+    els.mode.dataset.state = "legacy";
+    els.status.textContent = `ACP unavailable (${String(err).slice(0, 80)}) — using line mode`;
+  }
+}
+
+/* ------------------------------ send / cancel ---------------------------- */
+
 async function sendPrompt() {
   const prompt = els.prompt.value.trim();
   const cwd = els.cwd.value.trim();
@@ -90,15 +233,44 @@ async function sendPrompt() {
   addMessage("user", "you");
   els.transcript.lastElementChild.querySelector("pre").textContent = prompt;
   currentAgentPre = null;
+  acpAgentPre = null;
+  acpThoughtPre = null;
   els.prompt.value = "";
-  setBusy(true, "grove is thinking...");
 
+  // ACP path: restart the session if the working dir moved out from under it.
+  if (acp.ready && cwd !== acp.cwd) {
+    acp.ready = false;
+    await startAcp(cwd);
+  }
+
+  if (acp.ready && acp.sessionId) {
+    setBusy(true, "Cedar is working — streaming live…");
+    try {
+      await invoke("grove_acp_prompt", { sessionId: acp.sessionId, text: prompt });
+      // completion arrives via the grove://acp turn-end event
+    } catch (err) {
+      addMessage("agent", "grove · error").textContent = String(err);
+      setBusy(false, "idle");
+    }
+    return;
+  }
+
+  // Legacy fallback: headless -p line scraping.
+  setBusy(true, "grove is thinking...");
   try {
     await invoke("grove_send", { prompt, cwd, resume: state.resume });
   } catch (err) {
     addMessage("agent", "grove · launch error").textContent = String(err);
     setBusy(false, "idle");
   }
+}
+
+async function cancelRun() {
+  if (acp.ready && acp.sessionId) {
+    invoke("grove_acp_cancel", { sessionId: acp.sessionId }).catch(() => {});
+    return;
+  }
+  invoke("grove_cancel").catch(() => {});
 }
 
 async function refreshVersion() {
@@ -121,8 +293,10 @@ listen("grove://exit", (event) => {
   setBusy(false, ok ? "idle" : `exit code ${code ?? "unknown"}`);
 });
 
+listen("grove://acp", handleAcpEvent);
+
 els.send.addEventListener("click", sendPrompt);
-els.cancel.addEventListener("click", () => invoke("grove_cancel").catch(() => {}));
+els.cancel.addEventListener("click", cancelRun);
 els.prompt.addEventListener("keydown", (event) => {
   if (event.key === "Enter" && !event.shiftKey) {
     event.preventDefault();
@@ -130,7 +304,7 @@ els.prompt.addEventListener("keydown", (event) => {
   }
 });
 
-/* ---------------- dictation (mic -> local whisper -> prompt) ----------------
+/* ------------------- dictation (mic -> local whisper -> prompt) -----------
    The pause-edit-adapt loop, desktop edition: record, stop, and the
    transcript lands in the EDITABLE prompt box — tweak it, then send. All
    transcription is on-device via the CLI's --transcribe verb (Mockingbird
@@ -191,5 +365,6 @@ async function finishDictation() {
 
 els.mic.addEventListener("click", toggleDictation);
 
-initCwd();
-refreshVersion();
+initCwd()
+  .then(() => startAcp(els.cwd.value.trim()))
+  .then(() => refreshVersion());
