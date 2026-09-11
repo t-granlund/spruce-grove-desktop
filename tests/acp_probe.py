@@ -107,7 +107,68 @@ class AcpProbe:
             self.proc.kill()
 
 
+def probe_lifecycle() -> int:
+    """Durability proof at protocol level: remember across process death.
+
+    Session A: new -> prompt (plant a marker word) -> close.
+    Process B: fresh agent -> session/load(same sessionId) -> prompt asking
+    for the marker. If B recalls it, quick-resume durability is proven for
+    the desktop's relaunch path.
+    """
+    marker = f"GROVE-DURABILITY-{time.strftime('%H%M%S')}"
+    probe = AcpProbe(with_tools=False)
+    try:
+        probe.request("initialize", {"protocolVersion": 1, "clientCapabilities": {}}, 30)
+        new = probe.request("session/new", {"cwd": CWD, "mcpServers": []}, 30)
+        sid = new["result"]["sessionId"]
+
+        def ask(p: AcpProbe, sid_arg: str, text: str) -> str:
+            rid = int(time.time() * 1000) % 100000
+            p.send({"jsonrpc": "2.0", "id": rid,
+                    "method": "session/prompt",
+                    "params": {"sessionId": sid_arg,
+                               "prompt": [{"type": "text", "text": text}]}})
+            p.wait_for(
+                lambda m: m.get("id") == rid and "result" in m, TIMEOUT
+            )
+            updates = [m for m in p.seen if m.get("method") == "session/update"]
+            return "".join(
+                (u["params"]["update"].get("content", {}) or {}).get("text", "")
+                for u in updates
+                if u["params"]["update"].get("sessionUpdate") == "agent_message_chunk"
+            )
+
+        ask(probe, sid, f"Remember this exact word for later: {marker}. Reply OK.")
+        print(f"[lifecycle] marker planted: {marker}")
+        probe.close()
+
+        probe2 = AcpProbe(with_tools=False)
+        try:
+            probe2.request("initialize", {"protocolVersion": 1, "clientCapabilities": {}}, 30)
+            load = probe2.request(
+                "session/load", {"cwd": CWD, "sessionId": sid, "mcpServers": []}, 30
+            )
+            print(f"[lifecycle] session/load ok: {json.dumps(load.get('result', {}))[:120]}")
+            answer = ask(
+                probe2, sid,
+                "What exact word did I ask you to remember earlier in this session? "
+                "Reply with only that word.",
+            )
+            print(f"[lifecycle] recalled answer: {answer.strip()[:200]}")
+            if marker in answer:
+                print("[lifecycle] PASS: session survived process death")
+                return 0
+            print("[lifecycle] FAIL: marker not recalled")
+            return 1
+        finally:
+            probe2.close()
+    finally:
+        probe.close()
+
+
 def main() -> int:
+    if "--lifecycle" in sys.argv:
+        return probe_lifecycle()
     with_tools = "--with-tools" in sys.argv
     Path(LOG).unlink(missing_ok=True)
     probe = AcpProbe(with_tools)

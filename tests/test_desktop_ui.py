@@ -47,8 +47,18 @@ window.__TAURI__ = {
         setTimeout(() => emit(mk("thought", upd("agent_thought_chunk", { content: { type: "text", text: "pondering the grove" } }))), 60);
         setTimeout(() => emit(mk("chunk", upd("agent_message_chunk", { content: { type: "text", text: "STREAMING." } }))), 90);
         setTimeout(() => emit(mk("tool", upd("tool_call", { toolCallId: "t1", title: "read_file", kind: "read", status: "completed", rawInput: { path: "x" } }))), 120);
-        setTimeout(() => emit(mk("turn-end", { ok: true, result: { stopReason: "end_turn", usage: { totalTokens: 4321 } } })), 200);
+        window.__turnCount = (window.__turnCount || 0) + 1;
+        const tok = window.__turnCount === 1 ? 4321 : 777;
+        if (window.__turnCount === 2) {
+          setTimeout(() => emit(mk("tool", upd("tool_call", { toolCallId: "shot1", title: "take_screenshot", kind: "other", status: "completed",
+            rawOutput: JSON.stringify({ success: true, screenshot_path: "/tmp/shots/scr_1.png" }) }))), 60);
+        }
+        setTimeout(() => emit(mk("turn-end", { ok: true, result: { stopReason: "end_turn", usage: { totalTokens: tok } } })), 200);
         return undefined;
+      }
+      if (cmd === "grove_read_image_base64") {
+        if (!args.path) throw new Error("no path");
+        return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==";
       }
       if (cmd === "grove_send") return undefined;
       return undefined;
@@ -70,6 +80,10 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def log_message(self, *a):  # quiet
         pass
+
+
+def window_calls(page):
+    return page.evaluate("window.__calls")
 
 
 def main() -> int:
@@ -136,6 +150,37 @@ def main() -> int:
             )
             if "Launch the desktop dictation loop" not in page.input_value("#prompt"):
                 failures.append("dictation transcript missing from prompt")
+
+            # -- 5. mid-run steer: send while busy -> cancel -> redirect ----
+            page.fill("#prompt", "First task.")
+            page.click("#send")
+            page.wait_for_function(
+                "() => document.getElementById('status').textContent.includes('streaming')",
+                timeout=8000,
+            )
+            page.fill("#prompt", "STEER: change course.")
+            page.click("#send")
+            page.wait_for_function(
+                "() => (window.__calls.filter(c => c.cmd === 'grove_acp_cancel')).length === 1",
+                timeout=8000,
+            )
+            page.wait_for_function(
+                "() => window.__calls.some(c => c.cmd === 'grove_acp_prompt' && (c.args.text||'').includes('STEER:'))",
+                timeout=12000,
+            )
+            steer_prompt = [c for c in window_calls(page) if c["cmd"] == "grove_acp_prompt"][-1]
+            if "STEER: change course." not in steer_prompt["args"]["text"]:
+                texts = [c["args"].get("text", "")[:60] for c in window_calls(page) if c["cmd"] == "grove_acp_prompt"]
+                failures.append(f"steer text missing; prompt texts seen: {texts}; last call: {steer_prompt}")
+
+            # -- 6. look-in: screenshot in tool payload -> panel + image ----
+            page.wait_for_function(
+                "() => !document.getElementById('lookin-panel').classList.contains('hidden')",
+                timeout=8000,
+            )
+            src_img = page.get_attribute("#lookin-img", "src") or ""
+            if not src_img.startswith("data:image/png"):
+                failures.append("look-in image not rendered from data URL")
 
             if errors:
                 failures.append(f"page errors: {errors}")

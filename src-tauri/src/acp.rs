@@ -183,10 +183,21 @@ fn write_msg(stdin: &Arc<Mutex<ChildStdin>>, msg: &Value) -> Result<(), String> 
         .map_err(|e| format!("write: {e}"))
 }
 
-/// Spawn `spruce-grove --acp`, run the initialize + session/new handshake,
+/// Spawn `spruce-grove --acp`, run the initialize + (load|new) handshake,
 /// start the reader loop, and install the connection into app state.
 /// Returns (sessionId, currentModel).
-pub fn start(state: &AcpState, cwd: &str, app: &AppHandle) -> Result<(String, Option<String>), String> {
+///
+/// `resume` carries a previous session id (from a dead process): it is
+/// loaded with `session/load` so the conversation survives relaunches
+/// (durability proven by tests/acp_probe.py --lifecycle). On load failure
+/// we fall back to a fresh `session/new` — a dead session must never
+/// brick the app.
+pub fn start(
+    state: &AcpState,
+    cwd: &str,
+    resume: Option<String>,
+    app: &AppHandle,
+) -> Result<(String, Option<String>, bool), String> {
     let (program, prefix) = crate::cli_command();
     let mut child = Command::new(&program)
         .args(&prefix)
@@ -297,7 +308,32 @@ pub fn start(state: &AcpState, cwd: &str, app: &AppHandle) -> Result<(String, Op
         json!({ "protocolVersion": PROTOCOL_VERSION, "clientCapabilities": {} }),
         30,
     )?;
-    let new = call("session/new", json!({ "cwd": cwd, "mcpServers": [] }), 30)?;
+    let mut resumed = false;
+    let previous_session = resume.as_deref().filter(|s| !s.is_empty());
+    let new = match previous_session {
+        Some(prev) => call(
+            "session/load",
+            json!({ "cwd": cwd, "sessionId": prev, "mcpServers": [] }),
+            30,
+        )
+        .map(|loaded| {
+            resumed = true;
+            loaded
+        })
+        .or_else(|err| {
+            let _ = app.emit(
+                "grove://acp",
+                AcpEvent {
+                    kind: "error".into(),
+                    data: json!({ "message": format!(
+                        "could not resume {prev} ({err}) -- starting fresh"
+                    ) }),
+                },
+            );
+            call("session/new", json!({ "cwd": cwd, "mcpServers": [] }), 30)
+        })?,
+        None => call("session/new", json!({ "cwd": cwd, "mcpServers": [] }), 30)?,
+    };
     let (session_id, model) = parse_session_new(&new);
     let session_id = session_id.ok_or("session/new returned no sessionId")?;
 
@@ -316,12 +352,12 @@ pub fn start(state: &AcpState, cwd: &str, app: &AppHandle) -> Result<(String, Op
         "grove://acp",
         AcpEvent {
             kind: "ready".into(),
-            data: json!({ "sessionId": session_id, "model": model }),
+            data: json!({ "sessionId": session_id, "model": model, "resumed": resumed }),
         },
     )
     .ok();
 
-    Ok((session_id, model))
+    Ok((session_id, model, resumed))
 }
 
 /// Send a user prompt; returns immediately. The turn streams `chunk`,
@@ -429,6 +465,61 @@ mod tests {
         let (sid, model) = parse_session_new(&result);
         assert_eq!(sid.as_deref(), Some("sess_123"));
         assert_eq!(model.as_deref(), Some("syn:large:text"));
+    }
+
+    /// Replay the recorded probe session (fixtures/acp/session.jsonl) through
+    /// the router: the contract between the CLI's --acp dialect and this
+    /// client, pinned so protocol drift fails loudly. Regenerate with
+    /// `python3 tests/acp_probe.py`.
+    #[test]
+    fn replay_probe_fixture() {
+        let manifest = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+        let path = std::path::Path::new(&manifest)
+            .join("../fixtures/acp/session.jsonl");
+        let Ok(content) = std::fs::read_to_string(path) else {
+            panic!("fixture missing - run python3 tests/acp_probe.py to record it");
+        };
+
+        let mut responses = 0usize;
+        let mut updates: HashMap<String, usize> = HashMap::new();
+        let mut saw_protocol_version = false;
+        for line in content.lines() {
+            let Some(msg) = parse_line(line) else {
+                panic!("fixture line is not valid JSON: {line}");
+            };
+            match classify(&msg) {
+                Incoming::Response(_, ref value) => {
+                    responses += 1;
+                    if value
+                        .pointer("/result/protocolVersion")
+                        .is_some_and(|v| v.as_u64() == Some(1))
+                    {
+                        saw_protocol_version = true;
+                    }
+                }
+                Incoming::Notification(method, ref params) => {
+                    if method == "session/update" {
+                        let kind = update_kind(params).unwrap_or("unknown").to_string();
+                        *updates.entry(kind).or_insert(0) += 1;
+                    }
+                }
+                Incoming::AgentRequest(..) => {
+                    panic!("no-tools fixture must not contain agent requests");
+                }
+                Incoming::Ignore => panic!("fixture line routed as Ignore"),
+            }
+        }
+
+        assert!(saw_protocol_version, "initialize response missing");
+        assert!(responses >= 3, "expected >= 3 responses, got {responses}");
+        assert!(
+            updates.get("agent_message_chunk").copied().unwrap_or(0) >= 1,
+            "fixture lost its message chunks: {updates:?}"
+        );
+        assert!(
+            updates.get("available_commands_update").copied().unwrap_or(0) >= 1,
+            "fixture lost available_commands_update"
+        );
     }
 
     #[test]

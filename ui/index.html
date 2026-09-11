@@ -19,6 +19,7 @@
             <input id="cwd" type="text" spellcheck="false" />
           </label>
           <span id="mode" class="pill" data-state="starting">starting…</span>
+          <button id="lookin" class="btn ghost" title="Live browser look-in: screenshots and actions as the agent works">look-in</button>
           <span id="cli-version" class="pill" title="spruce-grove CLI">cli: ...</span>
         </div>
       </header>
@@ -30,6 +31,15 @@
             Nothing runs in this shell — the harness does all the thinking.</p>
         </div>
       </section>
+
+      <aside id="lookin-panel" class="lookin hidden" aria-label="Live browser look-in">
+        <div class="lookin-head">
+          <span>live look-in &middot; browser</span>
+          <button id="lookin-close" class="btn ghost" title="hide">hide</button>
+        </div>
+        <img id="lookin-img" alt="latest browser screenshot" />
+        <div id="lookin-log" class="lookin-log"></div>
+      </aside>
 
       <footer class="composer">
         <div id="status" class="status">idle</div>

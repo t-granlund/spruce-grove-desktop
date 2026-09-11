@@ -1,11 +1,18 @@
 /* Thin webview controller: all agent work happens in the CLI child process.
    Uses the global Tauri bridge (withGlobalTauri) — no bundler required.
 
-   Two transports, chosen at runtime:
+   Transports:
    * ACP (preferred): `spruce-grove --acp` — structured JSON-RPC stream with
-     message deltas, thinking, tool calls, per-turn token usage.
-   * Legacy fallback: headless `-p` line scraping (grove_send), kept for
-     durability when ACP cannot start. */
+     message deltas, thinking, tool calls, per-turn token usage, and
+     session/load durability across relaunches.
+   * Legacy fallback: headless `-p` line scraping (grove_send).
+
+   Extras riding the stream:
+   * Live Look-in panel — browser-tool screenshots render as they are taken
+     (paths detected in tool_call payloads, read via grove_read_image_base64).
+   * Mid-run steering — sending text while a turn runs cancels the turn and
+     redirects within the SAME session (context preserved); voice works too
+     because dictation fills the same prompt box. */
 
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
@@ -21,15 +28,27 @@ const els = {
   cancel: document.getElementById("cancel"),
   mic: document.getElementById("mic"),
   status: document.getElementById("status"),
+  lookinBtn: document.getElementById("lookin"),
+  lookinPanel: document.getElementById("lookin-panel"),
+  lookinImg: document.getElementById("lookin-img"),
+  lookinLog: document.getElementById("lookin-log"),
+  lookinClose: document.getElementById("lookin-close"),
 };
 
 const state = {
   busy: false,
   resume: false, // legacy path: first prompt starts fresh; later turns quick-resume
+  pendingSteer: null,
 };
 
-const acp = { ready: false, sessionId: null, model: null, cwd: null };
+const acp = { ready: false, sessionId: null, model: null, cwd: null, turnActive: false };
 const toolEls = new Map(); // toolCallId -> { box, chip, pre }
+
+function sessionKey(cwd) {
+  return `grove.session.${cwd}`;
+}
+
+/* ------------------------------- utilities ------------------------------- */
 
 async function initCwd() {
   const saved = localStorage.getItem("grove.cwd");
@@ -45,14 +64,12 @@ async function initCwd() {
 }
 
 function defaultCwd() {
-  // The webview cannot read $HOME; seed with the fork checkout and let the
-  // user retarget. Todo: expose a proper directory picker command.
   return "/Users/tygranlund/SPRUCE-GROVE-OS";
 }
 
 function setBusy(busy, note) {
   state.busy = busy;
-  els.send.disabled = busy;
+  els.send.disabled = busy && !acp.ready; // with ACP, sending = steering
   els.cancel.disabled = !busy;
   els.status.textContent = note;
   els.status.classList.toggle("busy", busy);
@@ -95,7 +112,6 @@ function appendLine(stream, line) {
 
 let acpAgentPre = null;
 let acpThoughtPre = null;
-let turnUsage = null;
 
 function acpEnsureAgentPre() {
   if (!acpAgentPre) {
@@ -156,6 +172,59 @@ function acpToolCard(update) {
   scrollDown();
 }
 
+/* ---------------------------- live look-in panel ------------------------- */
+
+const LOOKIN_ACTION = /browser|navigate|click|fill|type|upload|screenshot|snapshot|scroll|press|select/i;
+const SHOT_PATH = /screenshot_path\\?"?\s*:\s*\\?"([^"\\]+?\.(?:png|jpe?g|webp))/;
+
+function lookinLog(text) {
+  if (!els.lookinLog) return;
+  const line = document.createElement("div");
+  line.className = "lookin-line";
+  line.textContent = text;
+  els.lookinLog.prepend(line);
+  while (els.lookinLog.children.length > 30) {
+    els.lookinLog.lastChild.remove();
+  }
+}
+
+function lookinOpen() {
+  els.lookinPanel?.classList.remove("hidden");
+}
+
+async function lookinShowScreenshot(rawPath) {
+  let path = rawPath;
+  try {
+    path = JSON.parse(`"${rawPath}"`); // unescape \\uXXXX etc.
+  } catch {
+    /* keep raw */
+  }
+  try {
+    const dataUrl = await invoke("grove_read_image_base64", { path });
+    els.lookinImg.src = dataUrl;
+    els.lookinImg.dataset.path = path;
+    lookinOpen();
+  } catch {
+    lookinLog(`screenshot not readable yet: ${path.split("/").pop()}`);
+  }
+}
+
+function handleToolForLookin(update) {
+  if (!update) return;
+  const title = String(update.title || "");
+  if (LOOKIN_ACTION.test(title)) {
+    lookinLog(`${update.status || "…"} · ${title}`);
+  }
+  const blob = JSON.stringify(update);
+  const m = blob.match(SHOT_PATH);
+  if (m && m[1]) {
+    lookinLog(`screenshot captured`);
+    lookinShowScreenshot(m[1]);
+  }
+}
+
+/* ------------------------------ ACP events ------------------------------- */
+
 async function handleAcpEvent(event) {
   const { kind, data } = event.payload;
   switch (kind) {
@@ -164,8 +233,12 @@ async function handleAcpEvent(event) {
       acp.sessionId = data.sessionId;
       acp.model = data.model;
       acp.cwd = els.cwd.value.trim();
-      els.mode.textContent = `ACP · ${data.model || "live"}`;
+      localStorage.setItem(sessionKey(acp.cwd), acp.sessionId);
+      els.mode.textContent = `ACP · ${data.model || "live"}${data.resumed ? " · resumed" : ""}`;
       els.mode.dataset.state = "acp";
+      els.status.textContent = data.resumed
+        ? "grove ready — previous session resumed"
+        : "grove ready — structured live session";
       break;
     }
     case "chunk":
@@ -175,7 +248,10 @@ async function handleAcpEvent(event) {
       acpAppendThought(data && data.update ? (data.update.content || {}).text : "");
       break;
     case "tool":
-      if (data && data.update) acpToolCard(data.update);
+      if (data && data.update) {
+        acpToolCard(data.update);
+        handleToolForLookin(data.update);
+      }
       break;
     case "permission":
       if (data && data.params) {
@@ -185,15 +261,35 @@ async function handleAcpEvent(event) {
           .slice(0, 160);
       }
       break;
+    case "error":
+      if (data && data.message) {
+        els.status.textContent = data.message;
+      }
+      break;
     case "turn-end": {
-      turnUsage = data?.result?.usage || null;
-      const toks = turnUsage ? ` · ${turnUsage.totalTokens.toLocaleString()} tok` : "";
+      const usage = data?.result?.usage || null;
+      const toks = usage ? ` · ${usage.totalTokens.toLocaleString()} tok` : "";
       const why = data?.result?.stopReason || (data?.ok === false ? "error" : "done");
       if (data && data.ok === false) {
         addMessage("agent", "grove · error").textContent = String(data.error || "turn failed");
       }
       acpAgentPre = null;
       acpThoughtPre = null;
+      acp.turnActive = false;
+      toolEls.clear();
+      if (acp.sessionId && acp.cwd) {
+        localStorage.setItem(sessionKey(acp.cwd), acp.sessionId);
+      }
+      if (state.pendingSteer && acp.ready) {
+        const steer = state.pendingSteer;
+        state.pendingSteer = null;
+        setBusy(false, "steering Cedar back on course…");
+        setTimeout(() => {
+          els.prompt.value = steer;
+          sendPrompt();
+        }, 500);
+        return;
+      }
       setBusy(false, `done${toks} · ${why}`);
       break;
     }
@@ -205,15 +301,19 @@ async function handleAcpEvent(event) {
 async function startAcp(cwd) {
   els.mode.textContent = "connecting…";
   els.mode.dataset.state = "connecting";
+  const resume = localStorage.getItem(sessionKey(cwd)) || null;
   try {
-    const res = await invoke("grove_acp_start", { cwd });
+    const res = await invoke("grove_acp_start", { cwd, resume });
     acp.sessionId = res.sessionId;
     acp.model = res.model;
     acp.cwd = cwd;
     acp.ready = true;
-    els.mode.textContent = `ACP · ${res.model || "live"}`;
+    localStorage.setItem(sessionKey(cwd), res.sessionId);
+    els.mode.textContent = `ACP · ${res.model || "live"}${res.resumed ? " · resumed" : ""}`;
     els.mode.dataset.state = "acp";
-    els.status.textContent = "grove ready — structured live session";
+    els.status.textContent = res.resumed
+      ? "grove ready — previous session resumed"
+      : "grove ready — structured live session";
   } catch (err) {
     acp.ready = false;
     els.mode.textContent = "legacy line mode";
@@ -227,6 +327,17 @@ async function startAcp(cwd) {
 async function sendPrompt() {
   const prompt = els.prompt.value.trim();
   const cwd = els.cwd.value.trim();
+
+  // Mid-run steer (ACP only): cancel the turn, redirect within the session.
+  if (prompt && state.busy && acp.ready && acp.sessionId && acp.turnActive) {
+    pendingSteerFallbackArm();
+    state.pendingSteer = prompt;
+    els.prompt.value = "";
+    els.status.textContent = "steer queued — redirecting Cedar…";
+    invoke("grove_acp_cancel", { sessionId: acp.sessionId }).catch(() => {});
+    return;
+  }
+
   if (!prompt || !cwd || state.busy) return;
 
   localStorage.setItem("grove.cwd", cwd);
@@ -245,9 +356,9 @@ async function sendPrompt() {
 
   if (acp.ready && acp.sessionId) {
     setBusy(true, "Cedar is working — streaming live…");
+    acp.turnActive = true;
     try {
       await invoke("grove_acp_prompt", { sessionId: acp.sessionId, text: prompt });
-      // completion arrives via the grove://acp turn-end event
     } catch (err) {
       addMessage("agent", "grove · error").textContent = String(err);
       setBusy(false, "idle");
@@ -255,7 +366,6 @@ async function sendPrompt() {
     return;
   }
 
-  // Legacy fallback: headless -p line scraping.
   setBusy(true, "grove is thinking...");
   try {
     await invoke("grove_send", { prompt, cwd, resume: state.resume });
@@ -263,6 +373,18 @@ async function sendPrompt() {
     addMessage("agent", "grove · launch error").textContent = String(err);
     setBusy(false, "idle");
   }
+}
+
+function pendingSteerFallbackArm() {
+  setTimeout(() => {
+    if (!state.pendingSteer) return;
+    const steer = state.pendingSteer;
+    state.pendingSteer = null;
+    acp.turnActive = false;
+    setBusy(false, "steering (direct)…");
+    els.prompt.value = steer;
+    sendPrompt();
+  }, 1200);
 }
 
 async function cancelRun() {
@@ -289,7 +411,7 @@ listen("grove://line", (event) => {
 
 listen("grove://exit", (event) => {
   const { code, ok } = event.payload;
-  state.resume = true; // later turns continue this conversation
+  state.resume = true;
   setBusy(false, ok ? "idle" : `exit code ${code ?? "unknown"}`);
 });
 
@@ -303,18 +425,16 @@ els.prompt.addEventListener("keydown", (event) => {
     sendPrompt();
   }
 });
+els.lookinBtn?.addEventListener("click", () => els.lookinPanel.classList.toggle("hidden"));
+els.lookinClose?.addEventListener("click", () => els.lookinPanel.classList.add("hidden"));
 
-/* ------------------- dictation (mic -> local whisper -> prompt) -----------
-   The pause-edit-adapt loop, desktop edition: record, stop, and the
-   transcript lands in the EDITABLE prompt box — tweak it, then send. All
-   transcription is on-device via the CLI's --transcribe verb (Mockingbird
-   plugin's whisper rig); the shell only ferries bytes. */
+/* ------------------- dictation (mic -> local whisper -> prompt) ----------- */
 
 const dictation = { recording: false, recorder: null, chunks: [], stream: null };
 
 async function toggleDictation() {
   if (dictation.recording) {
-    dictation.recorder?.stop(); // onstop -> finishDictation
+    dictation.recorder?.stop();
     return;
   }
   try {
@@ -333,7 +453,9 @@ async function toggleDictation() {
   dictation.recording = true;
   els.mic.textContent = "stop";
   els.mic.classList.add("rec");
-  els.status.textContent = "recording — click stop when the thought is out";
+  els.status.textContent = state.busy
+    ? "recording a steer — stop to redirect Cedar"
+    : "recording — click stop when the thought is out";
 }
 
 async function finishDictation() {

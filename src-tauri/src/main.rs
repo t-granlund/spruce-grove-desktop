@@ -253,6 +253,38 @@ fn grove_transcribe(file: String) -> Result<String, String> {
     }
 }
 
+// ---------------------------- look-in panel media ------------------------
+
+/// Read a screenshot/image from disk as a data URL for the Live Look-in
+/// panel. Browser tools (spruce_grove_screenshots_* tempdirs) save PNGs and
+/// report the path in their tool output; the panel polls tool_call updates
+/// for those paths and calls this. Extension-whitelisted, size-capped.
+#[tauri::command]
+fn grove_read_image_base64(path: String) -> Result<String, String> {
+    use base64::Engine as _;
+    let p = std::path::Path::new(&path);
+    let ext = p
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.to_ascii_lowercase())
+        .unwrap_or_default();
+    let mime = match ext.as_str() {
+        "png" => "image/png",
+        "jpg" | "jpeg" => "image/jpeg",
+        "gif" => "image/gif",
+        "webp" => "image/webp",
+        other => return Err(format!("unsupported image type: {other}")),
+    };
+    let bytes = std::fs::read(p).map_err(|e| format!("read {path}: {e}"))?;
+    if bytes.len() > 20 * 1024 * 1024 {
+        return Err("image too large".into());
+    }
+    Ok(format!(
+        "data:{mime};base64,{}",
+        base64::engine::general_purpose::STANDARD.encode(bytes)
+    ))
+}
+
 // ---------------------------- ACP (structured live sessions) -------------
 
 #[tauri::command]
@@ -260,9 +292,12 @@ fn grove_acp_start(
     state: State<'_, acp::AcpState>,
     app: AppHandle,
     cwd: String,
+    resume: Option<String>,
 ) -> Result<serde_json::Value, String> {
-    let (session_id, model) = acp::start(&state, &cwd, &app)?;
-    Ok(serde_json::json!({ "sessionId": session_id, "model": model }))
+    let (session_id, model, resumed) = acp::start(&state, &cwd, resume, &app)?;
+    Ok(serde_json::json!({
+        "sessionId": session_id, "model": model, "resumed": resumed
+    }))
 }
 
 #[tauri::command]
@@ -291,6 +326,7 @@ fn main() {
             grove_cancel,
             grove_save_recording,
             grove_transcribe,
+            grove_read_image_base64,
             grove_acp_start,
             grove_acp_prompt,
             grove_acp_cancel

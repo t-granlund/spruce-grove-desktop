@@ -116,3 +116,28 @@ textarea:focus { outline: none; border-color: var(--glow); }
 .msg.tool pre { margin: 6px 0 0; font-size: 11px; color: var(--text-dim); }
 .msg.permission { border-style: dotted; opacity: 0.8; }
 .msg.permission .who { color: var(--glow); }
+
+/* live look-in panel */
+.lookin {
+  position: fixed; top: 64px; right: 14px; width: 400px; max-height: calc(100vh - 210px);
+  display: flex; flex-direction: column; gap: 10px;
+  background: linear-gradient(170deg, var(--halo), var(--bg-card) 70%);
+  border: 1px solid var(--line); border-radius: 14px; padding: 12px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.45); z-index: 40;
+}
+.lookin.hidden { display: none; }
+.lookin-head {
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.12em;
+  text-transform: uppercase; color: var(--mint);
+}
+.lookin-head .btn { padding: 2px 10px; font-size: 11px; }
+.lookin img {
+  width: 100%; border-radius: 10px; border: 1px solid var(--line);
+  background: #fff; min-height: 90px; object-fit: contain;
+}
+.lookin-log {
+  overflow-y: auto; max-height: 140px; display: flex; flex-direction: column; gap: 4px;
+  font-family: var(--mono); font-size: 11px; color: var(--text-dim);
+}
+.lookin-line { border-left: 2px solid var(--halo); padding-left: 8px; }
