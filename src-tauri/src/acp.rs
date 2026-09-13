@@ -199,7 +199,19 @@ pub fn start(
     app: &AppHandle,
 ) -> Result<(String, Option<String>, bool), String> {
     let (program, prefix) = crate::cli_command();
+    // GUI apps inherit launchd's minimal environment; the CLI may shell out
+    // to tools (ffmpeg for whisper, security for keychain) that live in the
+    // user's paths. Enrich PATH before spawning so behavior matches a
+    // terminal launch.
+    let home = std::env::var("HOME").unwrap_or_default();
+    let user_paths = format!(
+        "{home}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
+    );
     let mut child = Command::new(&program)
+        .env("PATH", user_paths)
+        // GUI-spawned children otherwise inherit "/" as cwd; the CLI resolves
+        // workspace-relative config and plugins from its working directory.
+        .current_dir(std::path::Path::new(cwd))
         .args(&prefix)
         .arg("--acp")
         .current_dir(cwd)

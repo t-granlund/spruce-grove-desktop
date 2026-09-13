@@ -116,10 +116,11 @@ function renderSidebar() {
     const meta = document.createElement("span");
     meta.className = "s-meta";
     meta.textContent = baseName(s.cwd) + " · " + relTime(s.ts);
-    const del = document.createElement("span");
+    const del = document.createElement("button");
     del.className = "s-del";
     del.textContent = "×";
     del.title = "forget this session";
+    del.setAttribute("aria-label", "forget session: " + (s.title || "session"));
     del.addEventListener("click", (ev) => {
       ev.stopPropagation();
       dropSession(s.id);
@@ -648,7 +649,10 @@ async function finishDictation() {
   dictation.recorder = null;
   try {
     const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()));
-    const file = await invoke("grove_save_recording", { bytes });
+    const file = await invoke("grove_save_recording", {
+      bytes,
+      mime: blob.type || undefined,
+    });
     els.status.textContent = "transcribing on-device (local whisper)...";
     const text = await invoke("grove_transcribe", { file });
     els.prompt.value = els.prompt.value ? els.prompt.value + "\n" + text : text;

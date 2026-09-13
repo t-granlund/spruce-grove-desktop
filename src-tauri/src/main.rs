@@ -218,14 +218,22 @@ fn grove_cancel(state: State<'_, ActiveRun>) -> Result<(), String> {
 /// temp file and return its path. The webview cannot touch the filesystem
 /// itself and the shell stays thin: bytes in, path out.
 #[tauri::command]
-fn grove_save_recording(bytes: Vec<u8>) -> Result<String, String> {
+fn grove_save_recording(bytes: Vec<u8>, mime: Option<String>) -> Result<String, String> {
     let dir = std::env::temp_dir().join("spruce-grove-dictation");
     std::fs::create_dir_all(&dir).map_err(|e| format!("temp dir: {e}"))?;
     let stamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map_err(|e| format!("clock: {e}"))?
         .as_millis();
-    let path = dir.join(format!("dictation-{stamp}.webm"));
+    // name the container honestly: WKWebView engines differ (Chromium emits
+    // webm, Safari/WKWebView mp4). ffmpeg sniffs content anyway, but a true
+    // extension keeps debugging sane.
+    let ext = match mime.as_deref().map(str::to_ascii_lowercase) {
+        Some(m) if m.contains("mp4") => "mp4",
+        Some(m) if m.contains("ogg") => "ogg",
+        _ => "webm",
+    };
+    let path = dir.join(format!("dictation-{stamp}.{ext}"));
     std::fs::write(&path, bytes).map_err(|e| format!("write: {e}"))?;
     Ok(path.to_string_lossy().to_string())
 }
