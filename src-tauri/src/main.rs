@@ -38,10 +38,16 @@ fn cli_command() -> (String, Vec<String>) {
             return (program, parts.collect());
         }
     }
+    // newest first: the uv tool install tracks PyPI releases; the fork venv
+    // may lag releases behind. Path order matters for --acp dialect drift.
     if let Ok(home) = std::env::var("HOME") {
-        let local = format!("{home}/SPRUCE-GROVE-OS/.venv/bin/spruce-grove");
-        if std::path::Path::new(&local).exists() {
-            return (local, Vec::new());
+        let uv_tool = format!("{home}/.local/bin/spruce-grove");
+        if std::path::Path::new(&uv_tool).exists() {
+            return (uv_tool, Vec::new());
+        }
+        let fork_venv = format!("{home}/SPRUCE-GROVE-OS/.venv/bin/spruce-grove");
+        if std::path::Path::new(&fork_venv).exists() {
+            return (fork_venv, Vec::new());
         }
     }
     ("spruce-grove".to_string(), Vec::new())

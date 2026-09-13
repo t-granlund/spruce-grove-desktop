@@ -310,29 +310,38 @@ pub fn start(
     )?;
     let mut resumed = false;
     let previous_session = resume.as_deref().filter(|s| !s.is_empty());
-    let new = match previous_session {
-        Some(prev) => call(
-            "session/load",
-            json!({ "cwd": cwd, "sessionId": prev, "mcpServers": [] }),
-            30,
-        )
-        .map(|loaded| {
+    // A load can "succeed" at the JSON-RPC level yet carry no sessionId when
+    // the CLI does not know the id (e.g. a session stored by an older CLI
+    // release). Only a response containing sessionId counts as resumed;
+    // anything else falls back to a fresh session/new on the same wire.
+    let load_attempt = previous_session
+        .map(|prev| {
+            call(
+                "session/load",
+                json!({ "cwd": cwd, "sessionId": prev, "mcpServers": [] }),
+                30,
+            )
+        })
+        .unwrap_or_else(|| Err("no previous session".into()));
+    let new = match load_attempt.ok().filter(|v| v.pointer("/result/sessionId").is_some()) {
+        Some(loaded) => {
             resumed = true;
             loaded
-        })
-        .or_else(|err| {
-            let _ = app.emit(
-                "grove://acp",
-                AcpEvent {
-                    kind: "error".into(),
-                    data: json!({ "message": format!(
-                        "could not resume {prev} ({err}) -- starting fresh"
-                    ) }),
-                },
-            );
-            call("session/new", json!({ "cwd": cwd, "mcpServers": [] }), 30)
-        })?,
-        None => call("session/new", json!({ "cwd": cwd, "mcpServers": [] }), 30)?,
+        }
+        None => {
+            if let Some(prev) = previous_session {
+                let _ = app.emit(
+                    "grove://acp",
+                    AcpEvent {
+                        kind: "error".into(),
+                        data: json!({ "message": format!(
+                            "could not resume {prev} -- starting a fresh session"
+                        ) }),
+                    },
+                );
+            }
+            call("session/new", json!({ "cwd": cwd, "mcpServers": [] }), 30)?
+        }
     };
     let (session_id, model) = parse_session_new(&new);
     let session_id = session_id.ok_or("session/new returned no sessionId")?;

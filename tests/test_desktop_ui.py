@@ -123,7 +123,7 @@ def main() -> int:
             page.fill("#prompt", "Say the thing.")
             page.click("#send")
             page.wait_for_function(
-                "() => document.getElementById('transcript').innerText.includes('ACP STREAMING.')",
+                "() => { const t = document.getElementById('transcript').innerText; return t.includes('ACP ') && t.includes('STREAMING.'); }",
                 timeout=8000,
             )
             page.wait_for_function(
@@ -182,6 +182,47 @@ def main() -> int:
             if not src_img.startswith("data:image/png"):
                 failures.append("look-in image not rendered from data URL")
 
+            # -- 7. sidebar: session + directory memory --------------------
+            page.wait_for_function(
+                "() => document.querySelectorAll('#session-list .sess-item').length >= 1",
+                timeout=8000,
+            )
+            s_titles = page.text_content("#session-list") or ""
+            if "Say the thing." not in s_titles:
+                failures.append(f"session title missing from sidebar: {s_titles!r}")
+            if "sg-dogfood" not in (page.text_content("#dir-list") or ""):
+                failures.append("directory chip missing from sidebar")
+
+            # -- 8. sidebar collapse / restore -----------------------------
+            page.click("#sidebar-toggle")
+            if "collapsed" not in (page.get_attribute("#sidebar", "class") or ""):
+                failures.append("sidebar did not collapse")
+            page.click("#sidebar-open")
+            if "collapsed" in (page.get_attribute("#sidebar", "class") or ""):
+                failures.append("sidebar did not restore")
+
+            # -- 9. new chat: fresh session, no resume ---------------------
+            starts_before = len([c for c in window_calls(page) if c["cmd"] == "grove_acp_start"])
+            page.click("#new-chat")
+            page.wait_for_function(
+                "() => document.getElementById('transcript').innerText.includes('Fresh ground.')",
+                timeout=8000,
+            )
+            starts = [c for c in window_calls(page) if c["cmd"] == "grove_acp_start"]
+            if len(starts) <= starts_before:
+                failures.append("new chat did not start a fresh ACP session")
+            if starts[-1]["args"].get("resume") is not None:
+                failures.append("new chat should not resume a previous session")
+
+            # -- 10. resume: clicking a session loads it via session/load --
+            page.click("#session-list .sess-item")
+            page.wait_for_function(
+                "() => (window.__calls.filter(c => c.cmd === 'grove_acp_start' && (c.args.resume||null) === 'sess_mock')).length >= 1",
+                timeout=8000,
+            )
+            if "Resuming" not in (page.text_content("#transcript") or ""):
+                failures.append("resume notice missing from transcript")
+
             if errors:
                 failures.append(f"page errors: {errors}")
             browser.close()
@@ -192,7 +233,7 @@ def main() -> int:
         for f in failures:
             print(" -", f)
         return 1
-    print("PASS: ACP streaming + dictation + init regression, all green")
+    print("PASS: streaming + dictation + steering + look-in + sidebar history, all green")
     return 0
 
 

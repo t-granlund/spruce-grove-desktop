@@ -4,58 +4,86 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Spruce Grove</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
     <main class="shell">
-      <header class="topbar">
-        <div class="brand">
-          <span class="wordmark">SPRUCE GROVE</span>
-          <span class="sub">desktop shell · CLI-native</span>
+      <!-- ============ left sidebar: sessions & directories ============ -->
+      <aside class="sidebar" id="sidebar">
+        <div class="side-brand">
+          <span class="wordmark">Spruce Grove<span class="leaf">.</span></span>
+          <button id="sidebar-toggle" class="icon-btn" title="collapse sidebar">&laquo;</button>
         </div>
-        <div class="env">
-          <label class="field">
+        <button id="new-chat" class="btn solid wide" title="start a fresh session in the current directory">+ new chat</button>
+
+        <div class="side-sec">
+          <div class="side-label">sessions</div>
+          <div id="session-list" class="session-list"></div>
+        </div>
+
+        <div class="side-sec">
+          <div class="side-label">directories</div>
+          <div id="dir-list" class="dir-list"></div>
+        </div>
+
+        <div class="side-foot">
+          <span id="mode" class="pill" data-state="starting">starting…</span>
+          <span id="cli-version" class="side-cli" title="resolved CLI">cli: …</span>
+        </div>
+      </aside>
+
+      <!-- ==================== main column ==================== -->
+      <section class="maincol">
+        <header class="topbar">
+          <button id="sidebar-open" class="icon-btn hidden" title="show sidebar">&#187;</button>
+          <label class="field" title="the directory the agent works in">
             <span>working dir</span>
             <input id="cwd" type="text" spellcheck="false" />
           </label>
-          <span id="mode" class="pill" data-state="starting">starting…</span>
           <button id="lookin" class="btn ghost" title="Live browser look-in: screenshots and actions as the agent works">look-in</button>
-          <span id="cli-version" class="pill" title="spruce-grove CLI">cli: ...</span>
-        </div>
-      </header>
+        </header>
 
-      <section id="transcript" class="transcript" aria-live="polite">
-        <div class="empty" id="empty-state">
-          <p class="empty-title">The grove is listening.</p>
-          <p>Every prompt runs through the groomed CLI in the working dir above.
-            Nothing runs in this shell — the harness does all the thinking.</p>
-        </div>
-      </section>
-
-      <aside id="lookin-panel" class="lookin hidden" aria-label="Live browser look-in">
-        <div class="lookin-head">
-          <span>live look-in &middot; browser</span>
-          <button id="lookin-close" class="btn ghost" title="hide">hide</button>
-        </div>
-        <img id="lookin-img" alt="latest browser screenshot" />
-        <div id="lookin-log" class="lookin-log"></div>
-      </aside>
-
-      <footer class="composer">
-        <div id="status" class="status">idle</div>
-        <div class="row">
-          <textarea
-            id="prompt"
-            rows="3"
-            placeholder="Ask the grove... (Enter to send, Shift+Enter for newline)"
-          ></textarea>
-          <div class="actions">
-            <button id="mic" class="btn ghost mic" title="Dictation: record, transcribe on-device with the local whisper rig, edit here, then send">record</button>
-            <button id="cancel" class="btn ghost" disabled>cancel</button>
-            <button id="send" class="btn solid">send</button>
+        <section id="transcript" class="transcript" aria-live="polite">
+          <div class="empty" id="empty-state">
+            <p class="empty-title">The grove is listening.</p>
+            <p>
+              Speak or type. Every prompt runs through the groomed CLI in the working
+              directory &mdash; streaming its thinking, its tools, and its tokens as they land.
+            </p>
           </div>
-        </div>
-      </footer>
+        </section>
+
+        <aside id="lookin-panel" class="lookin hidden" aria-label="Live browser look-in">
+          <div class="lookin-head">
+            <span>live look-in &middot; browser</span>
+            <button id="lookin-close" class="btn ghost" title="hide">hide</button>
+          </div>
+          <img id="lookin-img" alt="latest browser screenshot" />
+          <div id="lookin-log" class="lookin-log"></div>
+        </aside>
+
+        <footer class="composer">
+          <div id="status" class="status">idle</div>
+          <div class="row">
+            <textarea
+              id="prompt"
+              rows="3"
+              placeholder="Ask the grove... (Enter to send, Shift+Enter for newline)"
+            ></textarea>
+            <div class="actions">
+              <button id="mic" class="btn ghost mic" title="Dictation: record, transcribe on-device with the local whisper rig, edit here, then send">record</button>
+              <button id="cancel" class="btn ghost" disabled>cancel</button>
+              <button id="send" class="btn solid">send</button>
+            </div>
+          </div>
+        </footer>
+      </section>
     </main>
     <script src="main.js"></script>
   </body>
