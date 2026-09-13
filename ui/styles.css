@@ -75,7 +75,7 @@ body {
 .wide { width: calc(100% - 24px); margin: 0 12px 6px; }
 
 .side-sec { padding: 10px 12px 4px; min-height: 0; display: flex; flex-direction: column; }
-.side-sec:first-of-type { flex: 1; overflow-y: auto; }
+.side-sec.sessions { flex: 1; overflow-y: auto; min-height: 0; }
 .side-label {
   font-family: var(--mono); font-size: 10px; letter-spacing: 0.18em;
   text-transform: uppercase; color: var(--text-faint);

@@ -207,7 +207,13 @@ pub fn start(
     let user_paths = format!(
         "{home}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
     );
-    let mut child = Command::new(&program)
+    // Spawn through the user's login shell: a launchd-spawned GUI parent
+    // leaves the child in a context where the CLI's turn path wedges (see
+    // BUILD-LOG 34); a login shell re-establishes the user's full context.
+    let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
+    let quoted = format!("exec '{}' --acp", program.replace('\'', "\\'"));
+    let mut child = Command::new(&shell)
+        .arg("-l").arg("-c").arg(&quoted)
         .env("PATH", user_paths)
         // GUI-spawned children otherwise inherit "/" as cwd; the CLI resolves
         // workspace-relative config and plugins from its working directory.
@@ -223,6 +229,24 @@ pub fn start(
 
     let stdin = Arc::new(Mutex::new(child.stdin.take().ok_or("no stdin")?));
     let stdout = child.stdout.take().ok_or("no stdout")?;
+    // CRITICAL: stderr must be drained or the child blocks once the 64KB
+    // pipe buffer fills (observed live: mid-turn wedge with the socket left
+    // in CLOSE_WAIT and zero session/update events). Each line is forwarded
+    // as a "log" event so the UI can surface the last diagnostic.
+    let stderr = child.stderr.take().ok_or("no stderr")?;
+    let app_err = app.clone();
+    std::thread::spawn(move || {
+        let reader = std::io::BufReader::new(stderr);
+        for line in reader.lines().map_while(Result::ok) {
+            let trimmed: &str = line.trim_end();
+            if trimmed.is_empty() { continue; }
+            let short: String = trimmed.chars().take(300).collect();
+            let _ = app_err.emit(
+                "grove://acp",
+                AcpEvent { kind: "log".into(), data: json!({ "line": short }) },
+            );
+        }
+    });
     let next_id = Arc::new(AtomicU64::new(1));
     let pending: Arc<Mutex<HashMap<u64, mpsc::Sender<Value>>>> =
         Arc::new(Mutex::new(HashMap::new()));

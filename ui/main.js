@@ -385,6 +385,12 @@ async function handleAcpEvent(event) {
     case "error":
       if (data && data.message) els.status.textContent = data.message;
       break;
+    case "log":
+      // CLI diagnostics stream: show the latest line while a turn is live
+      if (state.busy && data && data.line) {
+        els.status.textContent = "Cedar is working — " + data.line;
+      }
+      break;
     case "turn-end": {
       const usage = data && data.result && data.result.usage;
       const toks = usage ? " · " + Number(usage.totalTokens || 0).toLocaleString() + " tok" : "";
