@@ -316,6 +316,12 @@ fn grove_acp_prompt(
     acp::prompt(&state, &session_id, &text, &app)
 }
 
+/// Hard-restart hook for the UI stall watchdog: kill the wedged CLI.
+#[tauri::command]
+fn grove_acp_kill(state: State<'_, acp::AcpState>) -> bool {
+    acp::kill(&state)
+}
+
 #[tauri::command]
 fn grove_acp_cancel(state: State<'_, acp::AcpState>, session_id: String) -> Result<(), String> {
     acp::cancel(&state, &session_id)
@@ -335,7 +341,8 @@ fn main() {
             grove_read_image_base64,
             grove_acp_start,
             grove_acp_prompt,
-            grove_acp_cancel
+            grove_acp_cancel,
+            grove_acp_kill
         ])
         .run(tauri::generate_context!())
         .expect("error while running spruce-grove desktop");

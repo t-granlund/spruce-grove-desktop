@@ -1,0 +1,14 @@
+/Users/tygranlund/spruce-grove-desktop/src-tauri/target/release/deps/serde-c6cc0cce9c128910.d: /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs /Users/tygranlund/spruce-grove-desktop/src-tauri/target/release/build/serde-8e515573ee8bab3c/out/private.rs
+
+/Users/tygranlund/spruce-grove-desktop/src-tauri/target/release/deps/libserde-c6cc0cce9c128910.rlib: /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs /Users/tygranlund/spruce-grove-desktop/src-tauri/target/release/build/serde-8e515573ee8bab3c/out/private.rs
+
+/Users/tygranlund/spruce-grove-desktop/src-tauri/target/release/deps/libserde-c6cc0cce9c128910.rmeta: /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs /Users/tygranlund/spruce-grove-desktop/src-tauri/target/release/build/serde-8e515573ee8bab3c/out/private.rs
+
+/Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/lib.rs:
+/Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/integer128.rs:
+/Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/mod.rs:
+/Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/de.rs:
+/Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/serde-1.0.229/src/private/ser.rs:
+/Users/tygranlund/spruce-grove-desktop/src-tauri/target/release/build/serde-8e515573ee8bab3c/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/tygranlund/spruce-grove-desktop/src-tauri/target/release/build/serde-8e515573ee8bab3c/out

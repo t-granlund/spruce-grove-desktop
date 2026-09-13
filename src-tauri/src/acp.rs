@@ -418,6 +418,19 @@ pub fn prompt(state: &AcpState, session_id: &str, text: &str, app: &AppHandle) -
     Ok(())
 }
 
+/// Hard stop: drop the connection (its Drop kills the child CLI) so a
+/// wedged turn can never wedge the shell. The pending prompt's response
+/// channel resolves as "turn dropped", which the UI handles as a failed
+/// turn and recovers from.
+pub fn kill(state: &AcpState) -> bool {
+    state
+        .0
+        .lock()
+        .ok()
+        .and_then(|mut guard| guard.take())
+        .is_some()
+}
+
 /// Best-effort cancel of the in-flight turn.
 pub fn cancel(state: &AcpState, session_id: &str) -> Result<(), String> {
     let guard = state.0.lock().map_err(|_| "ACP state poisoned")?;

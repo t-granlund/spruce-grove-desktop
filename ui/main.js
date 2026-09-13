@@ -38,7 +38,7 @@ const els = {
 const state = { busy: false, resumeFlag: false, pendingSteer: null };
 const acp = {
   ready: false, sessionId: null, model: null, cwd: null,
-  turnActive: false, firstPrompt: null,
+  turnActive: false, firstPrompt: null, lastEventAt: 0,
 };
 const toolEls = new Map();
 let sessions = [];
@@ -355,6 +355,7 @@ function handleToolForLookin(update) {
 /* ============================ ACP events ========================== */
 
 async function handleAcpEvent(event) {
+  acp.lastEventAt = Date.now();
   const { kind, data } = event.payload;
   switch (kind) {
     case "ready":
@@ -414,6 +415,49 @@ async function handleAcpEvent(event) {
   }
 }
 
+/* ============================ stall watchdog ====================== */
+/* The CLI can wedge on a turn (observed: ACP glue deadlock while the model
+   socket sat in CLOSE_WAIT). A wedged turn must never wedge the shell:
+   after 75s of silence, warn; after 80s, cancel, then hard-kill the CLI and
+   restart the session (resume falls back to fresh automatically). */
+const STALL_WARN_MS = 75000;
+const STALL_KILL_MS = 80000;
+let stallState = null; // null | "warned"
+
+setInterval(() => {
+  if (!acp.turnActive || !acp.ready) { stallState = null; return; }
+  const quiet = Date.now() - acp.lastEventAt;
+  if (quiet < STALL_WARN_MS) {
+    if (stallState === "warned") {
+      stallState = null;
+      setBusy(true, "Cedar is working — streaming live…");
+    }
+    return;
+  }
+  if (quiet < STALL_KILL_MS) {
+    if (stallState !== "warned") {
+      stallState = "warned";
+      setBusy(true, `no stream activity for ${Math.round(quiet / 1000)}s — watching…`);
+    }
+    return;
+  }
+  // hard recovery
+  const dead = acp.sessionId;
+  stallState = null;
+  addMessage("agent", "grove · stall watchdog").textContent =
+    "The CLI stopped streaming for over a minute (observed wedge). " +
+    "Restarting the session — your history is kept in the sidebar.";
+  setBusy(false, "recovering from stalled turn…");
+  acp.turnActive = false;
+  invoke("grove_acp_cancel", { sessionId: dead }).catch(() => {});
+  setTimeout(async () => {
+    invoke("grove_acp_kill").catch(() => {});
+    acp.ready = false;
+    const cwd = els.cwd.value.trim();
+    setTimeout(() => startAcp(cwd, dead, true), 400);
+  }, 1200);
+}, 1000);
+
 /* ============================ send / cancel ======================= */
 
 async function sendPrompt() {
@@ -450,6 +494,7 @@ async function sendPrompt() {
   if (acp.ready && acp.sessionId) {
     setBusy(true, "Cedar is working — streaming live…");
     acp.turnActive = true;
+    acp.lastEventAt = Date.now();
     acp.firstPrompt = acp.firstPrompt || prompt;
     upsertSession(acp.sessionId, cwd, acp.firstPrompt);
     showWaiting();

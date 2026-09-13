@@ -1,0 +1,12 @@
+/Users/tygranlund/spruce-grove-desktop/src-tauri/target/debug/deps/thiserror-2846792adc3e389a.d: /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.20/src/lib.rs /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.20/src/aserror.rs /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.20/src/display.rs /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.20/src/var.rs /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.20/src/private.rs /Users/tygranlund/spruce-grove-desktop/src-tauri/target/debug/build/thiserror-4c44fdceb1b0d856/out/private.rs
+
+/Users/tygranlund/spruce-grove-desktop/src-tauri/target/debug/deps/libthiserror-2846792adc3e389a.rmeta: /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.20/src/lib.rs /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.20/src/aserror.rs /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.20/src/display.rs /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.20/src/var.rs /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.20/src/private.rs /Users/tygranlund/spruce-grove-desktop/src-tauri/target/debug/build/thiserror-4c44fdceb1b0d856/out/private.rs
+
+/Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.20/src/lib.rs:
+/Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.20/src/aserror.rs:
+/Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.20/src/display.rs:
+/Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.20/src/var.rs:
+/Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/thiserror-2.0.20/src/private.rs:
+/Users/tygranlund/spruce-grove-desktop/src-tauri/target/debug/build/thiserror-4c44fdceb1b0d856/out/private.rs:
+
+# env-dep:OUT_DIR=/Users/tygranlund/spruce-grove-desktop/src-tauri/target/debug/build/thiserror-4c44fdceb1b0d856/out
