@@ -695,6 +695,24 @@ function applyShellProfile(cwd, profile) {
       if (wm) wm.textContent = profile.brand + (profile.brand_mark || "");
       document.title = profile.brand + " — grove";
     }
+    if (profile.logo) {
+      // the business's own mark, read from their workspace, worn in the sidebar
+      const path = cwd.replace(/\/$/, "") + "/" + profile.logo.replace(/^\//, "");
+      invoke("grove_read_image_base64", { path })
+        .then((dataUrl) => {
+          const mark = document.getElementById("brand-mark");
+          if (!mark || !dataUrl) return;
+          const img = document.createElement("img");
+          img.src = dataUrl;
+          img.alt = "";
+          img.className = "side-mark";
+          img.style.width = "44px";
+          img.style.height = "auto";
+          img.style.display = "block";
+          mark.replaceWith(img);
+        })
+        .catch(() => { /* stock mark stays */ });
+    }
     if (profile.accent && /^#[0-9a-fA-F]{6}$/.test(profile.accent)) {
       document.documentElement.style.setProperty("--ember", profile.accent);
     }
