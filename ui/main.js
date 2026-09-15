@@ -33,6 +33,7 @@ const els = {
   sidebar: document.getElementById("sidebar"),
   sidebarToggle: document.getElementById("sidebar-toggle"),
   sidebarOpen: document.getElementById("sidebar-open"),
+  engineCheck: document.getElementById("engine-check"),
 };
 
 const state = { busy: false, resumeFlag: false, pendingSteer: null };
@@ -594,6 +595,10 @@ listen("grove://exit", (event) => {
 listen("grove://acp", handleAcpEvent);
 
 els.send.addEventListener("click", sendPrompt);
+els.engineCheck?.addEventListener("click", () => {
+  els.prompt.value = "/onboard-synthetic check";
+  sendPrompt();
+});
 els.cancel.addEventListener("click", cancelRun);
 els.newChat.addEventListener("click", newChat);
 els.prompt.addEventListener("keydown", (event) => {

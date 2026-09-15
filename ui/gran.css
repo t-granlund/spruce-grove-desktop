@@ -365,3 +365,18 @@ textarea:focus {
   .empty-rune,
   .lookin-head::before { animation: none !important; }
 }
+
+/* engine check — the onboarding affordance (mono voice, ember on intent) */
+.path-btn {
+  appearance: none; background: none; border: 1px solid transparent;
+  border-radius: 999px; padding: 2px 12px; cursor: pointer;
+  font: inherit; color: inherit;
+  transition: border-color .25s ease, color .25s ease;
+}
+.path-btn:hover, .path-btn:focus-visible {
+  border-color: var(--ember, #e4aa71); color: var(--ember, #e4aa71);
+  outline: none;
+}
+@media (prefers-reduced-motion: reduce) {
+  .path-btn { transition: none; }
+}
