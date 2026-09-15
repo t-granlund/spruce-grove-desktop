@@ -100,6 +100,25 @@ fn grove_default_cwd() -> String {
     }
 }
 
+/// Per-business shell profile: reads `<cwd>/.spruce_grove/shell.json` and
+/// returns it verbatim (or null when absent/invalid). The UI wears it: brand
+/// name, accent color, quick prompts, agent roster notes. The machine stays
+/// generic; the workspace makes it theirs.
+#[tauri::command]
+fn grove_shell_profile(cwd: String) -> Result<Option<String>, String> {
+    let path = std::path::Path::new(&cwd)
+        .join(".spruce_grove")
+        .join("shell.json");
+    let text = match std::fs::read_to_string(&path) {
+        Ok(t) => t,
+        Err(_) => return Ok(None), // no profile: stock grove, honestly
+    };
+    // validate it parses before handing it to the UI (fail honest, not partial)
+    let parsed: serde_json::Value = serde_json::from_str(&text)
+        .map_err(|e| format!("shell.json invalid: {e}"))?;
+    Ok(Some(parsed.to_string()))
+}
+
 #[tauri::command]
 fn grove_version() -> Result<String, String> {
     let (program, prefix) = cli_command();
@@ -341,6 +360,7 @@ fn main() {
         .manage(acp::AcpState::new())
         .invoke_handler(tauri::generate_handler![
             grove_default_cwd,
+            grove_shell_profile,
             grove_version,
             grove_send,
             grove_cancel,

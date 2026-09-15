@@ -181,6 +181,7 @@ async function startAcp(cwd, resumeId, forceRestart) {
     els.status.textContent = res.resumed
       ? "grove ready — previous session resumed"
       : "grove ready — structured live session";
+    loadShellProfile(cwd);
     renderSidebar();
     els.prompt.focus();
   } catch (err) {
@@ -678,6 +679,63 @@ async function finishDictation() {
 }
 
 els.mic.addEventListener("click", toggleDictation);
+
+/* ======================= workspace shell profile =================== */
+/* A business workspace may carry .spruce_grove/shell.json — the thin layer
+   that makes this grove THEIRS: brand name, accent, quick prompts, roster.
+   Machine stays generic; the workspace speaks. Failures = stock grove. */
+
+const QUICK_PROMPTS_ID = "quick-prompts";
+
+function applyShellProfile(cwd, profile) {
+  if (!profile) return;
+  try {
+    if (profile.brand) {
+      const wm = document.querySelector(".wordmark");
+      if (wm) wm.textContent = profile.brand + (profile.brand_mark || "");
+      document.title = profile.brand + " — grove";
+    }
+    if (profile.accent && /^#[0-9a-fA-F]{6}$/.test(profile.accent)) {
+      document.documentElement.style.setProperty("--ember", profile.accent);
+    }
+    if (profile.tagline) {
+      const et = document.querySelector(".empty-title");
+      if (et) et.textContent = profile.tagline;
+    }
+    // quick prompts: preloaded first tasks, one click each — day-one impact
+    const composer = document.querySelector(".composer .row");
+    if (composer && Array.isArray(profile.quick_prompts) && profile.quick_prompts.length) {
+      let bar = document.getElementById(QUICK_PROMPTS_ID);
+      if (!bar) {
+        bar = document.createElement("div");
+        bar.id = QUICK_PROMPTS_ID;
+        bar.className = "quick-prompts";
+        composer.parentElement.insertBefore(bar, composer);
+      }
+      bar.textContent = "";
+      for (const qp of profile.quick_prompts.slice(0, 4)) {
+        if (!qp || !qp.label || !qp.prompt) continue;
+        const chip = document.createElement("button");
+        chip.className = "quick-prompt";
+        chip.title = qp.prompt;
+        chip.textContent = qp.label;
+        chip.addEventListener("click", () => {
+          els.prompt.value = qp.prompt;
+          els.prompt.focus();
+        });
+        bar.appendChild(chip);
+      }
+    }
+    if (profile.note) els.status.textContent = profile.note;
+  } catch { /* a broken profile must never take the grove down */ }
+}
+
+async function loadShellProfile(cwd) {
+  try {
+    const raw = await invoke("grove_shell_profile", { cwd });
+    applyShellProfile(cwd, raw ? JSON.parse(raw) : null);
+  } catch { /* stock grove */ }
+}
 
 /* ============================ boot ================================ */
 
