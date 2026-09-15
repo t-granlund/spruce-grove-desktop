@@ -1,0 +1,11 @@
+SPRUCE GROVE DESKTOP
+Copyright 2026 Tyler Granlund
+
+Licensed under the Apache License, Version 2.0. The desktop shell is the
+Groved interface to Spruce Grove OS — which itself is inspired by and built
+from Code Puppy (Copyright (c) 2025 Mike Pfaffenberger, MIT). The full
+lineage and the preserved MIT notice live in the OS repository's NOTICE file:
+https://github.com/t-granlund/SPRUCE-GROVE-OS/blob/main/NOTICE
+
+TRADEMARKS: "Spruce Grove", the TreeMark, and the grove badge are not
+licensed under Apache-2.0. See the OS repository's TRADEMARKS.md.
