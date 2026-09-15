@@ -129,6 +129,12 @@
 npm run dev          # Tauri 2 dev shell — hot webview, live CLI
 npm run build        # the bundled desktop app
 npm run icon         # regenerate platform icons from assets/source-icon.png</pre>
+  <p><b>Models (Synthetic.new subscribers):</b> run <code>/onboard-synthetic</code>
+  inside the grove once — it stores your API key in the shared credential store, installs the
+  rotation-safe alias family (syn:large:text driving seat, syn:small:text fan-out,
+  syn:large:vision / syn:small:vision for image work, all tagged <code>supports_vision</code>),
+  and points the main model at the driving seat. Verify with
+  <code>/onboard-synthetic check</code>.</p>
   <p><b>Prerequisite:</b> the groomed CLI resolves on PATH (<code>spruce-grove</code> — install
   with <code>uv tool install spruce-grove</code>). The sidebar shows the resolved version; if it
   reads <code>cli: …</code> forever, the CLI is not resolving. The working dir you choose is the
