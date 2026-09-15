@@ -6,13 +6,18 @@ spawns the CLI in headless mode and streams its output back. Mockingbird is
 the reference shape (Tauri 2, local, zero telemetry); this repo consumes the
 CLI rather than re-implementing the harness, so the fork's diff does not grow.
 
-## Status: v0 scaffold
+## Status: v0 scaffold — GRAN-flushed, hand-off ready (2026-09-14)
+
+> **The hand-off:** `handoff/presentation.html` (the deck, arrow keys) and
+> `handoff/training-guide.html` (the deep guide) — prepared for Dustin Boyd,
+> founding member, author of Mockingbird, owner of the desktop experience.
 
 - [x] Thin shell launches (Tauri 2 + static webview UI, no build step)
 - [x] Talks to the CLI: `grove_send` spawns `spruce-grove --prompt ...`
   in the chosen working dir, streams stdout/stderr as window events
 - [x] Conversation continuity via `--quick-resume` on turns 2+
 - [x] ANSI stripping, cancel button, single-active-run guard
+- [x] GRAN flush: official mark in the sidebar, grain veil, never-flat-black canvas, rune empty state, ember favicon (chrome only — the four contracts untouched)
 - [ ] Dictation-to-agent loop on-device (acceptance gap — planned)
 - [ ] Upgrade path: speak ACP (`spruce-grove --acp`) for structured
   streaming/tool-call UI instead of line scraping

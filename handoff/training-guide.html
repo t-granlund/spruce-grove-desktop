@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>The Hand-Off — Spruce Grove Desktop · for Dustin Boyd</title>
+<link rel="icon" href="../ui/assets-mark.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital@0;1&family=Fraunces:opsz,wght@9..144,400;9..144,560&family=IM+Fell+English+SC&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0E130F;--bg2:#131B15;--ink:#EAE4D3;--dim:#C9CFC2;--faint:#8A938A;--cedar:#E4AA71;
+    --moss:#6FA97A;--line:rgba(234,228,211,.14);--mono:"JetBrains Mono",monospace}
+  *{box-sizing:border-box}
+  body{margin:0;background:
+    radial-gradient(ellipse 1100px 520px at 50% -8%, rgba(88,143,94,.17), transparent 60%),
+    radial-gradient(ellipse 800px 420px at 90% 106%, rgba(228,170,113,.08), transparent 62%),var(--bg);
+    color:var(--ink);font-family:"EB Garamond",Georgia,serif;font-size:18.5px;line-height:1.75}
+  #grain{position:fixed;inset:0;z-index:60;pointer-events:none;opacity:.05;mix-blend-mode:overlay;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
+    box-shadow:inset 0 0 200px rgba(0,0,0,.5)}
+  .wrap{max-width:860px;margin:0 auto;padding:64px 26px 110px}
+  .back{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint);text-decoration:none}
+  header{text-align:center;margin:34px 0 10px}
+  header img{width:118px;height:auto;filter:drop-shadow(0 10px 30px rgba(88,143,94,.45));display:block;margin:0 auto 20px}
+  .kick{font-family:var(--mono);font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--cedar);margin:0 0 18px}
+  h1{font-family:Fraunces,Georgia,serif;font-weight:560;font-size:clamp(2.4rem,5.5vw,3.8rem);line-height:1.06;color:var(--ink);margin:0 0 16px}
+  .dek{font-size:1.15em;font-style:italic;color:var(--dim);max-width:36em;margin:0 auto}
+  h2{font-family:"IM Fell English SC",serif;font-weight:400;font-size:1.7rem;margin:60px 0 8px}
+  h2 .no{font-family:var(--mono);font-size:.55em;color:var(--cedar);letter-spacing:.24em;display:block;margin-bottom:6px}
+  p{margin:14px 0}
+  .lead{font-size:1.13em}
+  em.w{color:var(--cedar);font-style:normal}
+  code{font-family:var(--mono);font-size:.85em;color:var(--moss);background:rgba(234,228,211,.06);padding:2px 7px;border-radius:5px}
+  pre{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:18px 20px;overflow-x:auto;font-family:var(--mono);font-size:.85em;line-height:1.7;color:var(--dim)}
+  .rule{border:0;height:1px;background:linear-gradient(90deg,transparent,rgba(234,228,211,.25),transparent);margin:34px 0}
+  .rune-line{display:block;width:150px;margin:22px auto 0}
+  table{width:100%;border-collapse:collapse;margin:18px 0}
+  th{font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;text-transform:uppercase;color:var(--faint);text-align:left;padding:10px 12px;border-bottom:1px solid var(--line)}
+  td{padding:12px;border-bottom:1px solid rgba(234,228,211,.07);vertical-align:top;color:var(--dim)}
+  td:first-child{color:var(--ink);font-weight:600;width:34%}
+  .card{background:var(--bg2);border:1px solid var(--line);border-radius:12px;padding:22px 26px;margin:18px 0}
+  .card .k{font-family:var(--mono);font-size:10.5px;letter-spacing:.22em;text-transform:uppercase;color:var(--cedar);margin:0 0 8px}
+  .card b{color:var(--ink)}
+  .ex{border-left:2px solid var(--cedar);padding:4px 0 4px 20px;margin:20px 0}
+  .ex .k{font-family:var(--mono);font-size:10px;letter-spacing:.24em;text-transform:uppercase;color:var(--cedar)}
+  .ex b{color:var(--ink)} .ex p{margin:4px 0 0;color:var(--dim)}
+  .pull{font-family:Fraunces,Georgia,serif;font-size:1.45rem;font-weight:560;line-height:1.35;color:var(--ink);margin:30px 0;padding-left:22px;border-left:2px solid var(--cedar)}
+  .pull em{color:var(--cedar);font-style:normal}
+  footer{margin-top:70px;text-align:center}
+  .fine{font-size:.86em;color:var(--faint);font-style:italic;max-width:36em;margin:0 auto}
+  .motto{font-family:"IM Fell English SC",serif;color:var(--cedar);margin-top:16px;font-size:1.1rem}
+</style>
+</head>
+<body>
+<div id="grain" aria-hidden="true"></div>
+<div class="wrap">
+  <a class="back" href="presentation.html">&larr; back to the deck</a>
+  <header>
+    <img src="../ui/assets-mark.svg" alt="">
+    <p class="kick">Spruce Grove Desktop &middot; the hand-off training guide &middot; for Dustin Boyd</p>
+    <h1>The Shell, The Shape,<br>and What Is Yours Now</h1>
+    <p class="dek">Everything you need to own the desktop experience of the grove: where it came from
+    (you), how it works (thin), what changed today (the flush), and where to dig (everywhere).</p>
+    <svg class="rune-line" viewBox="0 0 120 24"><g stroke="#E4AA71" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".55"><path d="M60 3 V21 M60 10 L45 4 M60 10 L75 4"/><path d="M10 12 H42 M78 12 H110" opacity=".45"/></g></svg>
+  </header>
+
+  <h2><span class="no">I · THE LINEAGE</span>Mockingbird, and how it became this</h2>
+  <p class="lead">You built <b>Mockingbird</b> — local-first voice dictation, meeting capture, and a
+  personal knowledge engine. Whisper on-device, push-to-talk, Obsidian vault projection, zero
+  telemetry, Tauri 2. You built it for your own daily use and gave it away. That document —
+  <em class="w">a reference implementation, freely published, forks welcomed</em> — is the exact
+  temperament the grove needed.</p>
+  <p>When Spruce Grove needed a desktop shell, we did not design one from scratch. We stood on
+  your shape: <em class="w">thin Tauri 2 shell, no agent logic inside, everything local, nothing
+  phones home.</em> The difference is only what the shell drives — instead of owning a harness,
+  it drives the groomed <code>spruce-grove</code> CLI. Your architecture became the reference
+  implementation for an entire product surface. That is what "we adapted it" means: we kept
+  everything you got right, and pointed it at the CLI.</p>
+  <div class="card">
+    <p class="k">the adaptation, stated plainly</p>
+    <p><b>Kept from Mockingbird:</b> the thin-shell discipline, the local-first covenant,
+    zero telemetry, Tauri 2, webview-without-build-step.<br>
+    <b>Changed:</b> the tenant — instead of owning dictation and capture (your app already
+    ships those), this shell <b>drives the grove CLI</b> headless and streams it.<br>
+    <b>The result:</b> two sibling apps, one temperament. Yours is the elder.</p>
+  </div>
+
+  <h2><span class="no">II · THE ARCHITECTURE</span>Thin shell, four contracts</h2>
+  <p>The shell owns <b>no agent logic</b>. Every prompt spawns the CLI in headless mode and
+  streams its output back. Four contracts, all in <code>src-tauri</code> and <code>ui/main.js</code>:</p>
+  <table>
+    <tr><th>Contract</th><th>How it works</th></tr>
+    <tr><td>Spawn + stream</td><td><code>grove_send</code> runs <code>spruce-grove --prompt …</code> in the chosen working dir; stdout/stderr stream to the transcript as window events. ANSI is stripped on the way in.</td></tr>
+    <tr><td>Resume</td><td>Turns 2+ pass <code>--quick-resume</code> so the conversation keeps its notes.</td></tr>
+    <tr><td>Cancel</td><td>Single-active-run guard; one button ends the run cleanly.</td></tr>
+    <tr><td>Look-in</td><code>grove_lookin</code></td><td>Live browser panel: screenshots and actions while the agent works. Seeing is trusting.</td></tr>
+  </table>
+  <p>Keep the fork's diff from growing: the shell consumes the CLI, never re-implements it.
+  If a capability is missing, it belongs in the CLI first.</p>
+
+  <h2><span class="no">III · THE FLUSH</span>What changed today</h2>
+  <p>The shell now wears the grove's design language — <b>GRAN</b>, codified in
+  <code>SPRUCE-GROVE-OS/BRAND.md</code>:</p>
+  <table>
+    <tr><th>What</th><th>Where</th></tr>
+    <tr><td>The official mark</td><td>Inline in the sidebar brand block, ember line, forest fills. Also the webview favicon (data-URI ember badge).</td></tr>
+    <tr><td>The canvas</td><td>Never flat black: moss radial high, ember low-corner, on the forest base.</td></tr>
+    <tr><td>The grain veil</td><td>Fixed overlay, 4.5% opacity, overlay blend, inset vignette. The xerox soul, executed modern.</td></tr>
+    <tr><td>The rune</td><td>The empty state carries the algiz line above "The grove is listening."</td></tr>
+  </table>
+  <p>Nothing in <code>main.js</code> was touched — the four contracts are untouched. This was
+  chrome only, by design: the deeper experience work is yours.</p>
+
+  <h2><span class="no">IV · THE LAWS</span>GRAN, as it applies to this app</h2>
+  <p>The full language lives in <code>SPRUCE-GROVE-OS/BRAND.md</code>. The desktop-specific reading:</p>
+  <table>
+    <tr><th>Law</th><th>In this shell</th></tr>
+    <tr><td>The canvas is never flat black</td><td>Two radials + forest base. Depth before content.</td></tr>
+    <tr><td>Grain on everything dark</td><td><code>body::before</code>, SVG turbulence, 4.5%. Already wired.</td></tr>
+    <tr><td>Four type voices</td><td>Fraunces (display) · Inter (UI) · JetBrains Mono (machine) · EB Garamond (long reading). Already loaded.</td></tr>
+    <tr><td>Three symbols only</td><td>The grove mark, the North Star, the algiz rune. No emoji, ever.</td></tr>
+    <tr><td>The stamp</td><td>Mono uppercase, double-offset border, rotated. One per view, only where the line must not be missed.</td></tr>
+    <tr><td>Motion is scarce</td><td>Glow, fade, draw-on. Nothing bounces.</td></tr>
+    <tr><td>The era-ghost</td><td>A corner watermark. The room should know what century it stands in.</td></tr>
+  </table>
+
+  <h2><span class="no">V · THE RUNBOOK</span>Run, build, ship</h2>
+  <pre>cd ~/spruce-grove-desktop
+npm run dev          # Tauri 2 dev shell — hot webview, live CLI
+npm run build        # the bundled desktop app
+npm run icon         # regenerate platform icons from assets/source-icon.png</pre>
+  <p><b>Prerequisite:</b> the groomed CLI resolves on PATH (<code>spruce-grove</code> — install
+  with <code>uv tool install spruce-grove</code>). The sidebar shows the resolved version; if it
+  reads <code>cli: …</code> forever, the CLI is not resolving. The working dir you choose is the
+  drawer the agent works in — it cannot wander outside it.</p>
+  <p><b>The tests:</b> <code>tests/</code> at the repo root covers the shell contracts. Run them
+  after any UI change that touches ids or events.</p>
+
+  <h2><span class="no">VI · THE CHARTER</span>Where to dig — the design backlog is yours</h2>
+  <p>You love digging deep and being fully immersed in expression through UI/UX. Here is the
+  seam to dig into — every one of these is unowned and waiting:</p>
+  <div class="card">
+    <p class="k">the design charter</p>
+    <p><b>Stream typography.</b> The transcript is the app's soul — thinking, tools, tokens as
+    they land. Type hierarchy for a stream nobody controls the pace of is a genuinely hard,
+    genuinely yours problem.<br>
+    <b>The empty state.</b> Currently one rune and a sentence. First impression of the whole
+    product — make it feel like the grove is breathing.<br>
+    <b>Session design.</b> Sessions, directories, quick-resume — how should continuity
+    <em class="w">feel</em>?<br>
+    <b>The look-in panel.</b> Screenshots + action log = trust made visible. Composition,
+    rhythm, motion-scarcity.<br>
+    <b>The composer.</b> Dictation + steering + cancel in one row. The master's voice deserves
+    better than a default textarea.<br>
+    <b>Iconography.</b> <code>npm run icon</code> regenerates from
+    <code>assets/source-icon.png</code> — the app icon should be the ember badge of the grove.</p>
+  </div>
+
+  <h2><span class="no">VII · THE METHOD</span>The same six rules</h2>
+  <p>The method that took the CLI from ten seats to seventy-five thousand applies to this shell
+  too: start with what people know, speak the task, honesty through requirements, clear timelines
+  kept small, demonstrate never mandate, and every learner becomes a trainer. You are the first
+  founder being trained on the desktop — which makes you the first desktop trainer. The index
+  card travels.</p>
+
+  <h2><span class="no">VIII · THE STORY</span>Why you, in one paragraph</h2>
+  <div class="pull">You helped make <em>Compass</em> come to life at Outdoor Cap. You are the one
+  who kept the standard — always do the right thing. You were hired into Head to Toe Brands and
+  you still stand there today. You built Mockingbird and gave it away. The grove's desktop is the
+  next room of that same house, and it has been waiting for its designer.</div>
+
+  <h2><span class="no">IX · FIRST TASKS</span>This week</h2>
+  <div class="ex"><p class="k">01 · run it</p><b>One real task through the shell.</b>
+  <p>Point the working dir at something real. Speak the task. Feel where the stream typography
+  sings and where it stumbles. Take notes — those notes are the design backlog.</p></div>
+  <div class="ex"><p class="k">02 · one surface</p><b>Redesign one thing, end to end.</b>
+  <p>Pick from the charter. Own the tokens, the states, the motion-scarcity. Ship it behind the
+  four contracts — nothing in main.js needs to change for pure experience work.</p></div>
+  <div class="ex"><p class="k">03 · one person</p><b>Teach it at the first council.</b>
+  <p>Friday, September 18, six o'clock, Bentonville Barber Company. Run a session for someone
+  new, on their task. The lesson is not complete until they have driven.</p></div>
+
+  <footer>
+    <hr class="rule">
+    <p class="fine">Prepared 2026-09-14 for the founding council. The laws live in BRAND.md; the
+    contracts live in src-tauri; the experience lives with you.</p>
+    <p class="motto">&ldquo;Together we are better. Always.&rdquo;</p>
+  </footer>
+</div>
+</body>
+</html>
