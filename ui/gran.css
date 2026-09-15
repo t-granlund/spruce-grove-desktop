@@ -1,0 +1,367 @@
+/* ==================================================================
+   GRAN design layer — spruce-grove-desktop
+   Laws per SPRUCE-GROVE-OS/BRAND.md: never-flat-black canvas, grain
+   veil (3-6%), four type voices (Fraunces / IM Fell English SC /
+   JetBrains Mono / EB Garamond), three symbols only (grove mark, North
+   Star, algiz rune), motion scarcity, era-ghosts.
+
+   This file dresses the stream. It touches nothing in main.js; the
+   four contracts (grove_send, grove_cancel, --quick-resume, look-in)
+   are untouched. Layer loads after styles.css.
+   ================================================================== */
+
+:root {
+  /* the ember voice — the badge's gold, the grove's signature */
+  --ember: #e4aa71;
+  --ember-soft: rgba(228, 170, 113, 0.14);
+  --ember-line: rgba(228, 170, 113, 0.38);
+  --moss: #6fa97a;
+  --moss-soft: rgba(111, 169, 122, 0.14);
+  --forest-1: #1d2a21;
+  --forest-2: #101812;
+
+  /* the four voices */
+  --display: "Fraunces", Georgia, serif;      /* the master's voice */
+  --sc: "IM Fell English SC", Georgia, serif; /* the ritual voice */
+  --serif: "EB Garamond", Georgia, serif;     /* the reading voice */
+  --mono: "JetBrains Mono", "SF Mono", ui-monospace, Menlo, monospace; /* the machine's voice */
+}
+
+/* ============================ 1 · STREAM TYPOGRAPHY ================
+   The transcript is the app's soul. Hierarchy for a stream nobody
+   controls the pace of: the master speaks in Fraunces, the assistant
+   answers in Garamond, the machine thinks in mono, tools are objects. */
+
+.transcript { padding: 26px 26px 18px; gap: 4px; }
+
+/* prose messages breathe — no box, a rail instead */
+.msg { border: 0; border-radius: 0; background: transparent; padding: 0; }
+.msg.user,
+.msg.assistant {
+  border-left: 2px solid transparent;
+  padding: 10px 14px 10px 18px;
+  width: min(100%, 760px);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+}
+
+.msg .who {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  letter-spacing: 0.22em;
+  margin-bottom: 8px;
+}
+.msg pre {
+  margin: 0;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+/* the master speaks in the display voice, on ember */
+.msg.user { border-left-color: var(--ember-line); background: linear-gradient(90deg, var(--ember-soft), transparent 72%); }
+.msg.user .who { color: var(--ember); }
+.msg.user pre {
+  font-family: var(--display);
+  font-weight: 450;
+  font-size: 16px;
+  line-height: 1.55;
+  color: var(--text);
+}
+
+/* the assistant answers in the reading voice, on moss */
+.msg.assistant { border-left-color: rgba(111, 169, 122, 0.45); }
+.msg.assistant .who { color: var(--moss); }
+.msg.assistant pre {
+  font-family: var(--serif);
+  font-size: 16px;
+  line-height: 1.72;
+  color: var(--ink, var(--text));
+}
+
+/* the machine's inner voice — italic mono, receding */
+.msg.thought {
+  opacity: 0.62;
+  border-left: 2px dashed rgba(139, 152, 142, 0.25);
+  padding: 4px 14px 4px 18px;
+  width: min(100%, 760px);
+}
+.msg.thought .who { color: var(--text-faint); font-size: 9px; }
+.msg.thought pre {
+  font-family: var(--mono);
+  font-style: italic;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--text-dim);
+}
+
+/* tools are objects — contained, chipped, precise */
+.msg.tool {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-card);
+  padding: 9px 13px;
+  width: min(100%, 760px);
+  margin: 3px 0 3px 12px;
+}
+.msg.tool .tool-title { color: var(--ember); }
+.msg.tool pre { font-family: var(--mono); font-size: 11px; color: var(--text-dim); }
+
+.msg.permission {
+  border: 1px dotted var(--ember-line);
+  border-radius: var(--radius-sm);
+  background: var(--ember-soft);
+  padding: 10px 14px;
+  width: min(100%, 760px);
+}
+.msg.permission .who { color: var(--ember); }
+
+.msg.steer {
+  border-left: 2px solid var(--ember);
+  background: linear-gradient(90deg, rgba(228, 170, 113, 0.1), transparent 70%);
+  padding: 8px 14px 8px 18px;
+}
+.msg.steer .who { color: var(--ember); }
+
+/* status pill inside messages (tool chips) keep mono precision */
+.chip { font-family: var(--mono); }
+
+/* ============================ 2 · THE EMPTY STATE ===================
+   First impression of the whole product. The rune breathes; the grove
+   listens. Motion scarcity: one slow breath, nothing else. */
+
+.empty {
+  max-width: 680px;
+  padding: 40px 30px;
+  position: relative;
+}
+.empty::before {
+  content: "";
+  position: absolute;
+  inset: -60px -80px;
+  background: radial-gradient(
+    ellipse 420px 260px at 50% 42%,
+    rgba(111, 169, 122, 0.09),
+    transparent 68%
+  );
+  animation: grove-breath 7s ease-in-out infinite;
+  pointer-events: none;
+}
+@keyframes grove-breath {
+  0%, 100% { opacity: 0.55; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+.empty-rune {
+  width: 132px;
+  margin: 0 auto 20px;
+  opacity: 0.75;
+  animation: rune-breath 7s ease-in-out infinite;
+}
+@keyframes rune-breath {
+  0%, 100% { opacity: 0.5; }
+  50% { opacity: 0.95; }
+}
+
+.empty-title {
+  font-family: var(--sc);
+  font-weight: 400;
+  font-size: 30px;
+  letter-spacing: 0.015em;
+  color: var(--text);
+  margin: 0 0 12px;
+}
+
+/* the whisper under the title reads in the reading voice */
+.empty p {
+  font-family: var(--serif);
+  font-size: 15.5px;
+  line-height: 1.7;
+  color: var(--text-dim);
+}
+
+/* three paths, offered not pushed — hints, not buttons. The triptych
+   holds one row: the rhythm of three matters more than the width. */
+.empty-paths {
+  display: flex;
+  justify-content: center;
+  gap: 20px;
+  margin-top: 26px;
+  flex-wrap: nowrap;
+}
+.path-hint {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+  transition: color 0.3s, border-color 0.3s;
+  white-space: nowrap;
+}
+.path-hint b { color: var(--ember); font-weight: 500; }
+.path-hint:hover { color: var(--mint); border-top-color: var(--ember-line); }
+
+/* ============================ 3 · SESSION DESIGN ====================
+   Continuity should feel like paths through the grove: quiet, named,
+   ember-marked where you stand. */
+
+.side-brand { padding: 20px 16px 16px; }
+.wordmark {
+  font-family: var(--sc);
+  font-weight: 400;
+  font-size: 16.5px;
+  letter-spacing: 0.03em;
+}
+.wordmark .leaf { color: var(--ember); }
+
+.side-label { color: rgba(228, 170, 113, 0.62); }
+
+.sess-item {
+  border-left: 2px solid transparent;
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  padding: 9px 26px 9px 12px;
+  transition: background 0.15s, border-color 0.15s, transform 0.15s;
+}
+.sess-item:hover {
+  background: var(--bg-card);
+  border-left-color: rgba(228, 170, 113, 0.3);
+  transform: translateX(2px);
+}
+.sess-item.active {
+  background: linear-gradient(90deg, var(--ember-soft), var(--bg-card) 80%);
+  border-left-color: var(--ember);
+}
+.sess-item .s-title { font-size: 13px; font-weight: 500; }
+.sess-item.active .s-title { color: var(--ember); }
+.sess-item .s-meta { color: var(--text-faint); }
+
+.dir-item {
+  border-left: 2px solid transparent;
+  transition: background 0.15s, border-color 0.15s;
+}
+.dir-item:hover { border-left-color: rgba(111, 169, 122, 0.4); }
+.dir-item.active {
+  color: var(--moss);
+  border-left-color: var(--moss);
+  background: var(--moss-soft);
+}
+
+#new-chat {
+  border: 1px solid var(--ember-line);
+  background: transparent;
+  color: var(--ember);
+  font-family: var(--mono);
+  letter-spacing: 0.06em;
+  transition: background 0.15s, transform 0.15s;
+}
+#new-chat:hover {
+  background: var(--ember-soft);
+  border-color: var(--ember);
+  transform: translateY(-1px);
+}
+
+/* ============================ 4 · THE LOOK-IN =======================
+   Trust made visible. Composition: one plate, one log, one pulse.
+   Motion scarcity: the live dot is the only animation. */
+
+.lookin {
+  border: 1px solid var(--line);
+  border-top: 2px solid var(--ember-line);
+  background: linear-gradient(170deg, var(--bg-panel), var(--forest-2) 85%);
+  border-radius: 0 0 14px 14px;
+  padding: 14px;
+}
+.lookin-head { color: var(--ember); letter-spacing: 0.2em; }
+.lookin-head::before {
+  content: "";
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--ember);
+  margin-right: 9px;
+  animation: live-dot 2.2s ease-in-out infinite;
+}
+@keyframes live-dot { 50% { opacity: 0.3; } }
+
+.lookin img {
+  border: 1px solid var(--ember-line);
+  box-shadow: inset 0 0 40px rgba(0, 0, 0, 0.35), 0 10px 30px rgba(0, 0, 0, 0.4);
+  background: var(--forest-2);
+}
+.lookin-line {
+  border-left: 2px solid rgba(111, 169, 122, 0.5);
+  padding-left: 10px;
+  line-height: 1.5;
+}
+
+/* ============================ 5 · THE COMPOSER ======================
+   The master's voice deserves better than a default textarea. The
+   input reads in Garamond, glows ember in focus; send is the ember
+   voice; status is the machine's whisper. */
+
+.composer {
+  border-top: 1px solid var(--line);
+  padding: 12px 22px 18px;
+  background: linear-gradient(180deg, var(--bg-elev), var(--forest-2));
+}
+.status { letter-spacing: 0.04em; }
+.status::before {
+  content: "";
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--moss);
+  margin-right: 8px;
+  vertical-align: 1px;
+}
+.status.busy { color: var(--ember); }
+.status.busy::before { background: var(--ember); }
+
+textarea {
+  font-family: var(--serif);
+  font-size: 16.5px;
+  line-height: 1.6;
+  background: var(--bg-card);
+  padding: 13px 16px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+textarea::placeholder { font-style: italic; color: #6f7c71; }
+textarea:focus {
+  border-color: var(--ember-line);
+  box-shadow: 0 0 0 3px rgba(228, 170, 113, 0.09), 0 0 24px rgba(228, 170, 113, 0.07);
+}
+
+.btn.solid {
+  background: linear-gradient(135deg, var(--ember), #d2a069);
+  color: #0e130f;
+  font-weight: 600;
+}
+.btn.solid:disabled { background: var(--line); color: var(--text-faint); }
+.btn.solid:not(:disabled):hover { filter: brightness(1.07); }
+
+.btn.mic.rec {
+  border-color: var(--ember);
+  color: var(--ember);
+}
+@keyframes rec-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(228, 170, 113, 0.4); }
+  50% { box-shadow: 0 0 0 6px rgba(228, 170, 113, 0.1); }
+}
+
+/* the working-dir field stays machine-voiced */
+.field span { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
+
+/* ============================ MOTION SCARCITY =======================
+   Exactly three animations live here: the grove's breath (empty),
+   the live dot (look-in), the record pulse. Everything else is
+   transition-only, and all of it stills under reduced motion. */
+
+@media (prefers-reduced-motion: reduce) {
+  .empty::before,
+  .empty-rune,
+  .lookin-head::before { animation: none !important; }
+}
