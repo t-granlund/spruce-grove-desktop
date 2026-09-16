@@ -535,6 +535,7 @@ function toggleInspector(force) {
   inspectorOpen = force != null ? force : !inspectorOpen;
   els.inspector.classList.toggle("hidden", !inspectorOpen);
   els.inspectorToggle.classList.toggle("active", inspectorOpen);
+  localStorage.setItem("grove.inspector", inspectorOpen ? "1" : "");
   if (inspectorOpen) loadInspector();
 }
 
@@ -1042,6 +1043,10 @@ async function initCwd() {
 }
 
 loadSessions();
+if (localStorage.getItem("grove.inspector") === "1") {
+  // the drawer remembers being open — relaunches keep your rail
+  toggleInspector(true);
+}
 initCwd()
   .then(() => {
     const cwd = els.cwd.value.trim();
