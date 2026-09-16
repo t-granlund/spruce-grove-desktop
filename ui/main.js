@@ -12,6 +12,10 @@
 const { invoke } = window.__TAURI__.core;
 const { listen } = window.__TAURI__.event;
 
+/* flight recorder: how far did boot actually get in the packaged webview? */
+const bootMark = (name, note) => invoke("grove_boot_marker", { name, note }).catch(() => {});
+bootMark("mainjs-loaded");
+
 const els = {
   cwd: document.getElementById("cwd"),
   cwdBrowse: document.getElementById("cwd-browse"),
@@ -588,13 +592,31 @@ async function newChat() {
 
 /* ============================ event wiring ======================== */
 
-listen("grove://line", (event) => appendLine(event.payload.stream, event.payload.line));
-listen("grove://exit", (event) => {
+/* A rejected listen() means the event bridge itself is dead (capabilities,
+   plugin permissions) — the app then looks alive while every stream is
+   silently dropped. Name that failure in the cli pill tooltip instead of
+   letting the promise rejection vanish. */
+function safeListen(name, handler) {
+  listen(name, handler)
+    .then(() => bootMark("listen-ok"))
+    .catch((err) => {
+      bootMark("listen-fail-" + name.replace(/[^a-z-]/gi, "_"), String(err));
+      els.cliVersion.textContent = "cli: events dead";
+      els.cliVersion.title = "event bridge failed for " + name + ": " + err;
+    });
+}
+
+safeListen("grove://line", (event) => appendLine(event.payload.stream, event.payload.line));
+safeListen("grove://exit", (event) => {
   const { code, ok } = event.payload;
   state.resumeFlag = true;
   setBusy(false, ok ? "idle" : "exit code " + (code ?? "unknown"));
 });
-listen("grove://acp", handleAcpEvent);
+safeListen("grove://acp", handleAcpEvent);
+
+/* bridge self-check: the shell emits this 2s after boot; acking it proves
+   rust -> webview events AND webview -> rust invokes, end to end */
+safeListen("grove://bridge-probe", () => invoke("grove_bridge_probe_ack").catch(() => {}));
 
 els.send.addEventListener("click", sendPrompt);
 els.engineCheck?.addEventListener("click", () => {

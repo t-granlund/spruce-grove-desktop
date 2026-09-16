@@ -391,10 +391,62 @@ fn grove_acp_cancel(state: State<'_, acp::AcpState>, session_id: String) -> Resu
     acp::cancel(&state, &session_id)
 }
 
+/// Bridge self-check ack: the webview calls this when the boot-time
+/// `grove://bridge-probe` event arrives. The marker file lets the shell
+/// (and CI scripts) prove the event bridge end-to-end without a human
+/// click — a missing file means capabilities or the event plugin are
+/// broken and every streamed update is being silently dropped.
+/// Boot breadcrumb: the webview calls this at key boot steps (script loaded,
+/// listeners registered, listen rejected) and the shell drops a marker file.
+/// Lets CI/scripts see how far the packaged app actually got without a
+/// human watching the window. Note rides in the file, name in the filename.
+#[tauri::command]
+fn grove_boot_marker(name: String, note: Option<String>) -> Result<(), String> {
+    let safe: String = name
+        .chars()
+        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .collect();
+    let path = std::env::temp_dir().join(format!("sg-boot-{safe}.txt"));
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    std::fs::write(&path, format!("{stamp} {}", note.unwrap_or_default()))
+        .map_err(|e| format!("boot marker: {e}"))
+}
+
+#[tauri::command]
+fn grove_bridge_probe_ack() -> Result<String, String> {
+    let path = std::env::temp_dir().join("spruce-grove-bridge-probe");
+    let stamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    std::fs::write(&path, format!("ok {stamp}")).map_err(|e| format!("probe write: {e}"))?;
+    Ok("acked".into())
+}
+
 fn main() {
     tauri::Builder::default()
         .manage(ActiveRun(Mutex::new(None)))
         .manage(acp::AcpState::new())
+        .setup(|app| {
+            // fire the bridge probe until acked: the webview may still be
+            // loading (blocking font fetches) when the first ping lands, so
+            // a one-shot probe would be a race, not an instrument
+            let handle = app.handle().clone();
+            std::thread::spawn(move || {
+                let marker = std::env::temp_dir().join("spruce-grove-bridge-probe");
+                for attempt in 0..30 {
+                    if marker.exists() {
+                        break;
+                    }
+                    let _ = tauri::Emitter::emit(&handle, "grove://bridge-probe", attempt);
+                    std::thread::sleep(std::time::Duration::from_secs(2));
+                }
+            });
+            Ok(())
+        })
         .invoke_handler(tauri::generate_handler![
             grove_default_cwd,
             grove_shell_profile,
@@ -408,7 +460,9 @@ fn main() {
             grove_acp_start,
             grove_acp_prompt,
             grove_acp_cancel,
-            grove_acp_kill
+            grove_acp_kill,
+            grove_bridge_probe_ack,
+            grove_boot_marker
         ])
         .run(tauri::generate_context!())
         .expect("error while running spruce-grove desktop");

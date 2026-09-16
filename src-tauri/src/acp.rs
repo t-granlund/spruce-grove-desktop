@@ -183,6 +183,24 @@ fn write_msg(stdin: &Arc<Mutex<ChildStdin>>, msg: &Value) -> Result<(), String> 
         .map_err(|e| format!("write: {e}"))
 }
 
+/// Fail every in-flight request with a synthetic error response. Called when
+/// the agent's stdout hits EOF: a dead agent must never leave a pending turn
+/// hanging (the UI's stall watchdog is the last resort, not the first).
+fn fail_all_pending(
+    pending: &Arc<Mutex<HashMap<u64, mpsc::Sender<Value>>>>,
+    why: &str,
+) -> usize {
+    let mut guard = match pending.lock() {
+        Ok(g) => g,
+        Err(_) => return 0, // poisoned: nothing honest left to do
+    };
+    let n = guard.len();
+    for (_, tx) in guard.drain() {
+        let _ = tx.send(json!({ "error": why }));
+    }
+    n
+}
+
 /// Spawn `spruce-grove --acp`, run the initialize + (load|new) handshake,
 /// start the reader loop, and install the connection into app state.
 /// Returns (sessionId, currentModel).
@@ -309,6 +327,17 @@ pub fn start(
                 Incoming::Ignore => {}
             }
         }
+        // stdout EOF: the agent process is gone. Say so, and resolve any
+        // pending request so a live turn ends in an honest error instead of
+        // hanging until the stall watchdog.
+        let _ = app_reader.emit(
+            "grove://acp",
+            AcpEvent {
+                kind: "error".into(),
+                data: json!({ "message": "the CLI agent process exited — the session is dead; send the prompt again (history is kept)" }),
+            },
+        );
+        fail_all_pending(&pending_reader, "agent process exited");
     });
 
     let mut conn = AcpConnection {
@@ -499,6 +528,24 @@ mod tests {
     fn chunk_text_extracts_deltas() {
         let params = json!({"sessionId":"s","update":{"sessionUpdate":"agent_message_chunk","content":{"type":"text","text":"ACP ONLINE."}}});
         assert_eq!(chunk_text(&params), "ACP ONLINE.");
+    }
+
+    #[test]
+    fn fail_all_pending_resolves_every_waiter_with_an_error() {
+        let pending: Arc<Mutex<HashMap<u64, mpsc::Sender<Value>>>> =
+            Arc::new(Mutex::new(HashMap::new()));
+        let (tx_a, rx_a) = mpsc::channel();
+        let (tx_b, rx_b) = mpsc::channel();
+        pending.lock().unwrap().insert(1, tx_a);
+        pending.lock().unwrap().insert(2, tx_b);
+
+        assert_eq!(fail_all_pending(&pending, "agent process exited"), 2);
+        for rx in [&rx_a, &rx_b] {
+            let msg = rx.recv_timeout(std::time::Duration::from_secs(1)).unwrap();
+            assert!(msg.get("error").is_some());
+        }
+        // second call: nothing left to fail, and no panic
+        assert_eq!(fail_all_pending(&pending, "again"), 0);
     }
 
     #[test]

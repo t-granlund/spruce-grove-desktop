@@ -1,5 +1,7 @@
 # Spruce Grove Desktop
 
+<p align="center"><img src="assets/spruce-grove-lockup-stacked.svg" alt="Spruce Grove — three spruces, one ground line; the center tree in gold" width="280"></p>
+
 Thin Tauri 2 shell around the groomed [`spruce-grove`](../SPRUCE-GROVE-OS) CLI
 (bead SPRUCE-GROVE-OS-5al.6). The shell owns **no agent logic** — every prompt
 spawns the CLI in headless mode and streams its output back. Mockingbird is
