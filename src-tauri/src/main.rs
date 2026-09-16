@@ -475,6 +475,7 @@ fn main() {
             inspector::grove_open_url,
             inspector::grove_settings_get,
             inspector::grove_settings_set,
+            inspector::grove_note_error,
             inspector::grove_repo_access,
             inspector::grove_diagnostics
         ])

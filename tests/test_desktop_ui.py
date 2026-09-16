@@ -90,8 +90,8 @@ window.__TAURI__ = {
           github: {
             gh_ok: true,
             repo: "t-granlund/spruce-grove-desktop",
-            prs: [{ number: 7, title: "Add inspector drawer", url: "https://github.com/t-granlund/spruce-grove-desktop/pull/7" }],
-            runs: [{ displayTitle: "ci", url: "https://github.com/t-granlund/spruce-grove-desktop/actions/runs/99", status: "completed", conclusion: "success" }],
+            prs: [{ number: 7, title: "Add inspector drawer", url: "https://github.com/t-granlund/spruce-grove-desktop/pull/7", state: "OPEN", isDraft: false }],
+            runs: [{ displayTitle: "ci", url: "https://github.com/t-granlund/spruce-grove-desktop/actions/runs/99", status: "completed", conclusion: "success", headBranch: "main", createdAt: "2026-09-16T09:00:00Z", updatedAt: "2026-09-16T09:01:30Z" }],
           },
         };
       }
@@ -99,7 +99,10 @@ window.__TAURI__ = {
       if (cmd === "grove_diagnostics") {
         return { app_version: "0.1.0", os: "macOS 27.0 (26A428)", arch: "arm64", pid: 4242,
           tmpdir: "/tmp", data_dir: "/data", bridge_probe_acked: true,
-          boot_mainjs: true, boot_listen_ok: true };
+          boot_mainjs: true, boot_listen_ok: true,
+          persisted_errors: [
+            { at: "2026-09-16T09:00:00Z", source: "self-heal", message: "cli exited — revived (past session)" }
+          ] };
       }
       if (cmd === "grove_settings_get") {
         return window.__settings || { version: 1, default_cwd: "", inspector_auto_open: false,
@@ -333,7 +336,27 @@ def main() -> int:
                 "() => window.__calls.some(c => c.cmd === 'grove_open_url' && (c.args.url||'').includes('/actions/runs/99'))",
                 timeout=4000,
             )
-            # close via the X
+            # run row shows branch + duration; PR row shows its state chip
+            run_body = page.text_content("#insp-runs") or ""
+            if "main" not in run_body or "90s" not in run_body:
+                failures.append("run row missing branch/duration meta")
+            if "open" not in (page.text_content("#insp-prs") or ""):
+                failures.append("PR row missing state chip")
+            # a commit row deep-links to the commit on GitHub
+            page.click("#insp-commits .insp-row")
+            page.wait_for_function(
+                "() => window.__calls.some(c => c.cmd === 'grove_open_url' && (c.args.url||'').includes('/commit/abc1234'))",
+                timeout=4000,
+            )
+            # Escape closes the drawer (top-most overlay owns Escape)
+            page.keyboard.press("Escape")
+            page.wait_for_function(
+                "() => document.getElementById('inspector').classList.contains('hidden')",
+                timeout=4000,
+            )
+            # close via the X (reopen first)
+            page.click("#inspector-toggle")
+            page.wait_for_selector("#inspector:not(.hidden)", timeout=4000)
             page.click("#insp-close")
             page.wait_for_function(
                 "() => document.getElementById('inspector').classList.contains('hidden')",
@@ -372,6 +395,20 @@ def main() -> int:
             )
             if "live (probe acked)" not in (page.text_content("#diag-engine") or ""):
                 failures.append("diagnostics missing bridge probe state")
+            # the persisted error trail renders + data dir opens
+            if "revived (past session)" not in (page.text_content("#diag-persisted") or ""):
+                failures.append("persisted error trail missing")
+            page.click("#diag-data-dir")
+            page.wait_for_function(
+                "() => window.__calls.some(c => c.cmd === 'grove_open_path' && (c.args.path||'') === '/data')",
+                timeout=4000,
+            )
+            # close the drawer again
+            page.click("#insp-close")
+            page.wait_for_function(
+                "() => document.getElementById('inspector').classList.contains('hidden')",
+                timeout=4000,
+            )
 
             if errors:
                 failures.append(f"page errors: {errors}")

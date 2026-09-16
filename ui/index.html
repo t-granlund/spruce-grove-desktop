@@ -93,6 +93,7 @@
               <button class="insp-tab active" data-tab="repo">repo</button>
               <button class="insp-tab" data-tab="diag">diagnostics</button>
             </div>
+            <span id="insp-updated" class="insp-updated" title="last refresh"></span>
             <button id="insp-refresh" class="icon-btn" title="refresh">&#8635;</button>
             <button id="insp-close" class="icon-btn" title="hide">&times;</button>
           </div>
@@ -136,7 +137,12 @@
               <section class="insp-sec">
                 <div class="side-label">errors (this session)</div>
                 <div id="diag-errors" class="insp-list"></div>
-                <button id="diag-copy" class="btn ghost" title="copy a markdown report to the clipboard">copy report</button>
+                <div class="side-label sub">persisted trail (survives restarts)</div>
+                <div id="diag-persisted" class="insp-list"></div>
+                <div class="diag-actions">
+                  <button id="diag-copy" class="btn ghost" title="copy a markdown report to the clipboard">copy report</button>
+                  <button id="diag-data-dir" class="btn ghost" title="reveal the app data dir in Finder">open data dir</button>
+                </div>
               </section>
             </div>
           </div>

@@ -340,6 +340,24 @@ textarea:focus-visible { outline: none; border-color: var(--glow); }
   text-overflow: ellipsis; white-space: nowrap;
 }
 
+/* inspector: clickable rows, run/pr states, refresh life */
+.insp-row.insp-click { cursor: pointer; text-align: left; }
+.insp-row.insp-click:hover { background: var(--bg-card); }
+.insp-main { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.insp-updated { font-family: var(--mono); font-size: 9.5px; color: var(--text-faint); }
+.insp-chip {
+  flex: none; font-family: var(--mono); font-size: 9px; letter-spacing: 0.08em;
+  padding: 1px 7px; border-radius: 99px; border: 1px solid var(--line);
+  color: var(--text-dim); text-transform: uppercase;
+}
+.insp-chip.chip-open { color: var(--glow); border-color: var(--ember-line); }
+.insp-chip.chip-draft { color: var(--text-faint); }
+.insp-chip.chip-merged { color: var(--ember); border-color: var(--ember-line); }
+.insp-glyph.g-neutral { color: var(--text-faint); }
+#insp-refresh.spinning { animation: insp-spin 0.9s linear infinite; }
+@keyframes insp-spin { to { transform: rotate(360deg); } }
+.diag-actions { display: flex; gap: 8px; padding-top: 6px; }
+
 /* ============================ inspector =========================== */
 /* Right rail: repo state, live GitHub, session turns. Mirror of the
    sidebar's discipline: mono labels, hairline rows, ember where you are. */

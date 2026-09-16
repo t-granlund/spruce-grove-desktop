@@ -34,8 +34,8 @@ fn run_with_timeout(
         .stderr(Stdio::piped())
         .spawn()
         .ok()?;
-    let mut stdout = child.stdout.take()?;
-    let mut stderr = child.stderr.take()?;
+    let stdout = child.stdout.take()?;
+    let stderr = child.stderr.take()?;
     let out_handle = std::thread::spawn(move || {
         let mut buf = Vec::new();
         let _ = stdout.take(256 * 1024).read_to_end(&mut buf);
@@ -146,7 +146,9 @@ fn gh_state(cwd: &str, repo: &str) -> Value {
     };
     let prs = run_with_timeout(
         gh,
-        &["pr", "list", "--limit", "4", "--json", "number,title,url"],
+        &[
+            "pr", "list", "--limit", "4", "--json", "number,title,url,state,isDraft",
+        ],
         cwd,
         GH_TIMEOUT,
     )
@@ -160,7 +162,7 @@ fn gh_state(cwd: &str, repo: &str) -> Value {
             "--limit",
             "4",
             "--json",
-            "displayTitle,url,status,conclusion",
+            "displayTitle,url,status,conclusion,headBranch,createdAt,updatedAt",
         ],
         cwd,
         GH_TIMEOUT,
@@ -271,6 +273,7 @@ fn data_dir() -> std::path::PathBuf {
 }
 
 fn open_target(target: &str, is_url: bool) -> Result<(), String> {
+    let _ = is_url; // only the Windows branch distinguishes url vs path
     #[cfg(target_os = "macos")]
     {
         Command::new("open").arg(target).spawn().map(|_| ()).map_err(|e| format!("open: {e}"))
@@ -310,7 +313,6 @@ fn gh_candidates() -> Vec<&'static str> {
 
 /// A human-readable OS line for diagnostics: name, version, arch.
 fn os_line() -> String {
-    let arch = std::env::consts::ARCH;
     #[cfg(target_os = "macos")]
     {
         let sw = run_with_timeout("sw_vers", &[], "/", Duration::from_secs(3))
@@ -330,13 +332,14 @@ fn os_line() -> String {
     }
     #[cfg(target_os = "windows")]
     {
-        format!("Windows ({arch})")
+        format!("Windows ({})", std::env::consts::ARCH)
     }
     #[cfg(all(unix, not(target_os = "macos")))]
     {
         let rel = run_with_timeout("uname", &["-r"], "/", Duration::from_secs(3))
             .and_then(|o| string_out(&Some(o)))
             .unwrap_or_default();
+        let arch = std::env::consts::ARCH;
         if rel.is_empty() { format!("Linux ({arch})") } else { format!("Linux {rel} ({arch})") }
     }
 }
@@ -476,7 +479,86 @@ pub fn grove_diagnostics() -> Value {
         "bridge_probe_acked": marker(format!("spruce-grove-bridge-probe-{pid}").as_str()),
         "boot_mainjs": marker("sg-boot-mainjs-loaded"),
         "boot_listen_ok": marker("sg-boot-listen-ok"),
+        "persisted_errors": persisted_errors(),
     })
+}
+
+// ------------------------------------------------------- persisted errors
+// The oversight charter says diagnostics survive restarts: errors append to
+// a JSONL trail in the data dir (last 40 kept), and grove_diagnostics
+// returns it so the UI can show history beyond this session.
+
+const ERRORS_FILE: &str = "errors.jsonl";
+const ERRORS_KEEP: usize = 40;
+
+#[tauri::command]
+pub fn grove_note_error(source: String, message: String) -> Result<(), String> {
+    let dir = data_dir();
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let path = dir.join(ERRORS_FILE);
+    let mut rows: Vec<Value> = std::fs::read_to_string(&path)
+        .map(|raw| {
+            raw.lines()
+                .filter_map(|l| serde_json::from_str(l).ok())
+                .collect()
+        })
+        .unwrap_or_default();
+    rows.push(json!({
+        "at": chrono_now(),
+        "source": source.chars().take(24).collect::<String>(),
+        "message": message.chars().take(220).collect::<String>(),
+    }));
+    if rows.len() > ERRORS_KEEP {
+        let drop = rows.len() - ERRORS_KEEP;
+        rows.drain(0..drop);
+    }
+    let mut out = rows
+        .iter()
+        .map(|r| r.to_string())
+        .collect::<Vec<_>>()
+        .join("\n");
+    out.push('\n');
+    std::fs::write(&path, out).map_err(|e| e.to_string())
+}
+
+fn persisted_errors() -> Value {
+    let path = data_dir().join(ERRORS_FILE);
+    Value::Array(
+        std::fs::read_to_string(&path)
+            .map(|raw| {
+                raw.lines()
+                    .filter_map(|l| serde_json::from_str::<Value>(l).ok())
+                    .collect()
+            })
+            .unwrap_or_default(),
+    )
+}
+
+/// Local wall-clock timestamp, no chrono dependency (RFC 3339-ish).
+fn chrono_now() -> String {
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default();
+    let secs = now.as_secs();
+    let days = secs / 86_400;
+    // civil-from-days (Howard Hinnant's algorithm) — honest date, zero deps
+    let z = days as i64 + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    let sod = secs % 86_400;
+    format!(
+        "{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z",
+        sod / 3600,
+        (sod % 3600) / 60,
+        sod % 60
+    )
 }
 
 /// Open a path in Finder/manager (or reveal its parent). Paths only.
@@ -564,5 +646,24 @@ mod tests {
         assert!(validate_settings(&bad_personas).is_err());
 
         assert!(validate_settings(&json!("garbage")).is_err());
+    }
+
+    #[test]
+    fn error_trail_caps_and_timestamps() {
+        let stamp = chrono_now();
+        // RFC 3339-ish, parseable, current year
+        assert_eq!(stamp.len(), 20);
+        assert!(stamp.starts_with("20"));
+        assert!(stamp.ends_with('Z'));
+
+        // ring keeps only the newest ERRORS_KEEP rows
+        let mut rows: Vec<Value> = (0..ERRORS_KEEP + 5)
+            .map(|i| json!({ "at": stamp, "source": "t", "message": format!("m{i}") }))
+            .collect();
+        let drop = rows.len() - ERRORS_KEEP;
+        rows.drain(0..drop);
+        assert_eq!(rows.len(), ERRORS_KEEP);
+        assert_eq!(rows[0]["message"], "m5");
+        assert_eq!(rows[ERRORS_KEEP - 1]["message"], "m44");
     }
 }

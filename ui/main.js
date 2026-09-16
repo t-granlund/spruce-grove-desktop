@@ -432,13 +432,20 @@ function el2(tag, cls, text) {
   return n;
 }
 
-function inspList(container, rows, render) {
+function inspList(container, rows, render, emptyLabel) {
   container.textContent = "";
   if (!rows || !rows.length) {
-    container.appendChild(el2("div", "insp-empty", "—"));
+    container.appendChild(el2("div", "insp-empty", emptyLabel || "—"));
     return;
   }
   for (const r of rows) container.appendChild(render(r));
+}
+
+function runGlyph(r) {
+  if (r.conclusion === "success") return ["✓", "g-done"];
+  if (r.conclusion === "failure" || r.conclusion === "timed_out") return ["✗", "g-failed"];
+  if (r.conclusion === "skipped" || r.conclusion === "cancelled") return ["−", "g-neutral"];
+  return ["●", "g-running"]; // queued / in_progress
 }
 
 function renderInspector(st) {
@@ -490,33 +497,46 @@ function renderInspector(st) {
     links.appendChild(el2("span", "insp-empty", "no github origin"));
   }
 
+  const prEmpty = gh.gh_ok ? "no open pull requests" : (gh.note || "gh unavailable");
   inspList(document.getElementById("insp-prs"), gh.gh_ok ? gh.prs : null, (p) => {
     const row = el2("button", "insp-row insp-click");
     row.dataset.url = p.url;
-    row.append(el2("span", "insp-hash", "#" + p.number), el2("span", "insp-main", p.title));
+    row.title = p.title;
+    const state = p.isDraft ? "draft" : String(p.state || "open").toLowerCase();
+    row.append(
+      el2("span", "insp-hash", "#" + p.number),
+      el2("span", "insp-main", p.title),
+      el2("span", "insp-chip chip-" + state, state),
+    );
     return row;
-  });
-  if (!gh.gh_ok) {
-    document.getElementById("insp-prs").appendChild(el2("div", "insp-empty", gh.note || "gh unavailable"));
-    document.getElementById("insp-runs").appendChild(el2("div", "insp-empty", "—"));
-  }
+  }, prEmpty);
 
+  const runEmpty = gh.gh_ok ? "no recent runs" : "—";
   inspList(document.getElementById("insp-runs"), gh.gh_ok ? gh.runs : null, (r) => {
     const row = el2("button", "insp-row insp-click");
     if (r.url) row.dataset.url = r.url;
-    const glyph = el2("span", "insp-glyph");
-    glyph.textContent = r.conclusion === "success" ? "✓" : r.conclusion === "failure" ? "✗" : "●";
-    glyph.classList.add(r.conclusion === "success" ? "g-done" : r.conclusion === "failure" ? "g-failed" : "g-running");
+    const [glyphText, glyphClass] = runGlyph(r);
+    const glyph = el2("span", "insp-glyph " + glyphClass, glyphText);
     row.append(glyph, el2("span", "insp-main", r.displayTitle || "run"));
+    let dur = "";
+    if (r.createdAt && r.updatedAt) {
+      const ms = new Date(r.updatedAt) - new Date(r.createdAt);
+      if (Number.isFinite(ms) && ms > 0) dur = Math.round(ms / 1000) + "s";
+    }
+    const bits = [r.headBranch, dur].filter(Boolean);
+    if (bits.length) row.appendChild(el2("span", "insp-meta", bits.join(" · ")));
     return row;
-  });
+  }, runEmpty);
 }
 
 async function loadInspector() {
   const cwd = els.cwd.value.trim();
   if (!cwd) return;
+  els.inspRefresh.classList.add("spinning");
   try {
     renderInspector(await invoke("grove_git_state", { cwd }));
+    document.getElementById("insp-updated").textContent =
+      "updated " + new Date().toTimeString().slice(0, 8);
   } catch (err) {
     const branch = document.getElementById("insp-branch");
     branch.textContent = "";
@@ -529,6 +549,8 @@ async function loadInspector() {
     const links = document.getElementById("insp-gh-links");
     links.textContent = "";
     links.appendChild(el2("span", "insp-empty", "no github origin"));
+  } finally {
+    els.inspRefresh.classList.remove("spinning");
   }
   renderTurns();
 }
@@ -601,6 +623,7 @@ function renderDiag(d) {
     kvRow("self-heals", counters.heals),
     kvRow("watchdog fires", counters.watchdog),
     kvRow("errors (ring)", errorRing.length),
+    kvRow("errors (persisted)", (d.persisted_errors || []).length),
   );
   const errs = document.getElementById("diag-errors");
   errs.textContent = "";
@@ -615,6 +638,22 @@ function renderDiag(d) {
       el2("span", "insp-main", e.message),
     );
     errs.appendChild(row);
+  }
+  // the durable trail: what previous sessions left in the data dir
+  const persisted = document.getElementById("diag-persisted");
+  persisted.textContent = "";
+  const past = d.persisted_errors || [];
+  if (!past.length) {
+    persisted.appendChild(el2("div", "insp-empty", "no persisted errors yet"));
+  }
+  for (const e of past.slice(0, 12)) {
+    const row = el2("div", "insp-row");
+    row.append(
+      el2("span", "insp-meta", String(e.at || "").replace("T", " ").replace("Z", "")),
+      el2("span", "insp-hash", e.source),
+      el2("span", "insp-main", e.message),
+    );
+    persisted.appendChild(row);
   }
 }
 
@@ -639,6 +678,13 @@ document.getElementById("diag-copy").addEventListener("click", () => {
   navigator.clipboard.writeText(report)
     .then(() => els.status.textContent = "diagnostics report copied to clipboard")
     .catch(() => els.status.textContent = "clipboard unavailable");
+});
+
+document.getElementById("diag-data-dir").addEventListener("click", () => {
+  invoke("grove_diagnostics")
+    .then((d) => invoke("grove_open_path", { path: d.data_dir }))
+    .then(() => els.status.textContent = "opened data dir")
+    .catch((err) => { els.status.textContent = String(err).split("\n")[0]; noteError("diagnostics", err); });
 });
 
 /* inspector tabs */
@@ -843,7 +889,12 @@ document.addEventListener("keydown", (ev) => {
     ev.preventDefault();
     settingsVisible ? closeSettings() : openSettings();
   }
-  if (ev.key === "Escape" && settingsVisible) closeSettings();
+  if (ev.key === "Escape") {
+    if (settingsVisible) { closeSettings(); return; }
+    // Escape belongs to the top-most layer only: settings, then picker, then drawer
+    const pickerOpen = !document.getElementById("dir-picker").classList.contains("hidden");
+    if (!pickerOpen && inspectorOpen) toggleInspector(false);
+  }
 });
 
 /* ============================ ACP events ========================== */
@@ -941,6 +992,8 @@ function noteError(source, message) {
     message: String(message).slice(0, 220),
   });
   if (errorRing.length > 40) errorRing.length = 40;
+  // the oversight charter: the trail survives restarts — persist fire-and-forget
+  invoke("grove_note_error", { source, message: String(message).slice(0, 220) }).catch(() => {});
   if (diagVisible) renderDiag();
 }
 
