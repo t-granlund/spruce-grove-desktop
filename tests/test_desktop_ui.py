@@ -28,6 +28,17 @@ window.__TAURI__ = {
       window.__calls.push({ cmd, args });
       if (cmd === "grove_version") return "spruce-grove 1.0.0";
       if (cmd === "grove_default_cwd") return "/tmp/sg-dogfood";
+      if (cmd === "grove_list_dirs") {
+        const tree = {
+          "/tmp/sg-dogfood": ["proj-a", "proj-b", "zeta-lab"],
+          "/tmp/sg-dogfood/proj-a": ["nested"],
+          "/tmp/sg-dogfood/proj-a/nested": [],
+        };
+        const dirs = tree[args.path];
+        if (!dirs) throw new Error("read " + args.path + ": no such directory");
+        const parent = args.path.replace(/\/+$/, "").split("/").slice(0, -1).join("/") || null;
+        return { path: args.path, parent, dirs, total: dirs.length };
+      }
       if (cmd === "grove_save_recording") return "/tmp/mock-dictation.webm";
       if (cmd === "grove_transcribe") {
         if (!args.file) throw new Error("no file given");
@@ -223,6 +234,40 @@ def main() -> int:
             if "Resuming" not in (page.text_content("#transcript") or ""):
                 failures.append("resume notice missing from transcript")
 
+            # -- 11. working-dir picker: browse -> descend -> choose -------
+            page.click("#cwd-browse")
+            page.wait_for_selector("#dir-picker:not(.hidden)", timeout=4000)
+            page.wait_for_function(
+                "() => document.querySelectorAll('#dir-picker .pk-item').length >= 3",
+                timeout=4000,
+            )
+            if "/tmp/sg-dogfood" not in (page.text_content(".pk-path") or ""):
+                failures.append("picker did not seed from the current cwd")
+            page.click('.pk-item:has-text("proj-a")')
+            page.wait_for_function(
+                "() => (document.querySelector('.pk-path')||{}).textContent?.includes('proj-a')",
+                timeout=4000,
+            )
+            page.click(".pk-use")
+            page.wait_for_function(
+                "() => document.getElementById('cwd').value.endsWith('proj-a')",
+                timeout=4000,
+            )
+            starts = [c for c in window_calls(page) if c["cmd"] == "grove_acp_start"]
+            if not starts or starts[-1]["args"].get("cwd") != "/tmp/sg-dogfood/proj-a":
+                failures.append("picker did not restart ACP in the chosen directory")
+
+            # -- 12. picker cancel: escape closes, cwd untouched -----------
+            page.click("#cwd-browse")
+            page.wait_for_selector("#dir-picker:not(.hidden)", timeout=4000)
+            page.keyboard.press("Escape")
+            page.wait_for_function(
+                "() => document.getElementById('dir-picker').classList.contains('hidden')",
+                timeout=4000,
+            )
+            if not page.input_value("#cwd").endswith("proj-a"):
+                failures.append("picker cancel changed the cwd")
+
             if errors:
                 failures.append(f"page errors: {errors}")
             browser.close()
@@ -233,7 +278,7 @@ def main() -> int:
         for f in failures:
             print(" -", f)
         return 1
-    print("PASS: streaming + dictation + steering + look-in + sidebar history, all green")
+    print("PASS: streaming + dictation + steering + look-in + sidebar history + dir picker, all green")
     return 0
 
 

@@ -233,6 +233,43 @@ fn grove_cancel(state: State<'_, ActiveRun>) -> Result<(), String> {
     }
 }
 
+/// Directory listing for the in-webview working-dir picker. The shell stays
+/// thin: path in, immediate subdirectories out (parent included so the UI can
+/// climb). Symlinks that resolve to directories count; broken ones are
+/// skipped honestly. Dotfiles are hidden — same default as the Finder.
+#[tauri::command]
+fn grove_list_dirs(path: String) -> Result<serde_json::Value, String> {
+    // sanity cap: a listing of 50k rows would wedge the webview, not help it
+    const MAX_ENTRIES: usize = 500;
+    let p = std::path::Path::new(&path);
+    let mut dirs: Vec<String> = Vec::new();
+    let mut total = 0usize;
+    for entry in std::fs::read_dir(p).map_err(|e| format!("read {path}: {e}"))? {
+        let entry = match entry {
+            Ok(e) => e,
+            Err(_) => continue, // one unreadable entry must not kill the listing
+        };
+        // metadata() follows symlinks; broken links just don't list
+        let Ok(md) = entry.metadata() else { continue };
+        if !md.is_dir() {
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with('.') {
+            continue;
+        }
+        total += 1;
+        if dirs.len() < MAX_ENTRIES {
+            dirs.push(name);
+        }
+    }
+    dirs.sort();
+    let parent = p.parent().map(|x| x.to_string_lossy().to_string());
+    Ok(serde_json::json!({
+        "path": path, "parent": parent, "dirs": dirs, "total": total
+    }))
+}
+
 /// Persist a dictation recording (webm/opus bytes from MediaRecorder) to a
 /// temp file and return its path. The webview cannot touch the filesystem
 /// itself and the shell stays thin: bytes in, path out.
@@ -367,6 +404,7 @@ fn main() {
             grove_save_recording,
             grove_transcribe,
             grove_read_image_base64,
+            grove_list_dirs,
             grove_acp_start,
             grove_acp_prompt,
             grove_acp_cancel,
@@ -394,5 +432,27 @@ mod tests {
     #[test]
     fn strip_ansi_drops_mid_line_color_switches() {
         assert_eq!(strip_ansi("a\u{1b}[1;33mb\u{1b}[0mc"), "abc");
+    }
+
+    #[test]
+    fn list_dirs_sorts_hides_dotfiles_and_reports_parent() {
+        let root = std::env::temp_dir().join(format!("grove-list-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&root);
+        std::fs::create_dir_all(root.join(".hidden")).unwrap();
+        std::fs::create_dir_all(root.join("zeta")).unwrap();
+        std::fs::create_dir_all(root.join("alpha")).unwrap();
+        std::fs::write(root.join("file.txt"), b"not a dir").unwrap();
+
+        let out = grove_list_dirs(root.to_string_lossy().to_string()).unwrap();
+        assert_eq!(out["dirs"].clone(), serde_json::json!(["alpha", "zeta"]));
+        assert_eq!(out["total"].as_u64(), Some(2));
+        assert_eq!(
+            out["parent"].clone(),
+            serde_json::json!(root.parent().map(|p| p.to_string_lossy().to_string()))
+        );
+
+        // bad path: honest error, not a silent empty list
+        assert!(grove_list_dirs("/definitely/not/a/grove/path".into()).is_err());
+        let _ = std::fs::remove_dir_all(&root);
     }
 }

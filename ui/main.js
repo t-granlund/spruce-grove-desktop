@@ -14,6 +14,7 @@ const { listen } = window.__TAURI__.event;
 
 const els = {
   cwd: document.getElementById("cwd"),
+  cwdBrowse: document.getElementById("cwd-browse"),
   mode: document.getElementById("mode"),
   transcript: document.getElementById("transcript"),
   prompt: document.getElementById("prompt"),
@@ -613,6 +614,13 @@ els.cwd.addEventListener("change", () => {
   if (!cwd) return;
   const last = sessionsForDir(cwd)[0];
   startAcp(cwd, last ? last.id : null, true);
+});
+els.cwdBrowse?.addEventListener("click", async () => {
+  // pick in-webview (ui/picker.js), then ride the existing change flow
+  const picked = await window.grovePickDirectory(els.cwd.value.trim());
+  if (!picked || picked === els.cwd.value.trim()) return;
+  els.cwd.value = picked;
+  els.cwd.dispatchEvent(new Event("change"));
 });
 els.lookin.addEventListener("click", () => els.lookinPanel.classList.toggle("hidden"));
 els.lookinClose.addEventListener("click", () => els.lookinPanel.classList.add("hidden"));

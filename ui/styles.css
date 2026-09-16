@@ -279,6 +279,72 @@ textarea:focus-visible { outline: none; border-color: var(--glow); }
   box-shadow: var(--shadow); z-index: 40;
 }
 .lookin.hidden { display: none; }
+
+/* ========================= working-dir picker ===================== */
+/* In-webview folder browser (ui/picker.js) — no native dialog, so the
+   Playwright harness can drive it like everything else in this shell. */
+.picker-overlay {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(8, 12, 9, 0.62);
+  display: flex; align-items: center; justify-content: center;
+}
+.picker-overlay.hidden { display: none; }
+.picker {
+  width: min(520px, 86vw); max-height: min(560px, 78vh);
+  display: flex; flex-direction: column;
+  background: var(--bg-panel); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+  overflow: hidden;
+}
+.pk-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 14px; border-bottom: 1px solid var(--line);
+}
+.pk-title {
+  font-family: var(--display); font-size: 14px; color: var(--text);
+}
+.pk-close {
+  background: transparent; border: 0; color: var(--text-faint);
+  font-size: 16px; cursor: pointer; padding: 2px 8px; border-radius: 6px;
+}
+.pk-close:hover { color: var(--err); background: rgba(217, 138, 106, 0.12); }
+.pk-pathrow {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 14px; border-bottom: 1px solid var(--line);
+}
+.pk-up {
+  background: transparent; border: 1px solid var(--line); cursor: pointer;
+  color: var(--text-dim); border-radius: var(--radius-sm);
+  width: 26px; height: 26px; font-size: 13px; line-height: 1;
+}
+.pk-up:hover:not(:disabled) { color: var(--cedar); border-color: var(--cedar); }
+.pk-up:disabled { opacity: 0.4; cursor: default; }
+.pk-path {
+  flex: 1; font-family: var(--mono); font-size: 11.5px; color: var(--mint);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pk-list { flex: 1; overflow-y: auto; padding: 6px; outline: none; }
+.pk-item {
+  display: block; width: 100%; text-align: left; cursor: pointer;
+  background: transparent; border: 1px solid transparent;
+  border-radius: var(--radius-sm); padding: 7px 10px;
+  font-family: var(--mono); font-size: 12.5px; color: var(--text);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pk-item:hover { background: var(--bg-card); border-color: var(--halo); color: var(--mint); }
+.pk-empty {
+  padding: 10px; font-family: var(--mono); font-size: 11px;
+  color: var(--text-faint);
+}
+.pk-foot {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 14px; border-top: 1px solid var(--line);
+}
+.pk-status {
+  flex: 1; font-family: var(--mono); font-size: 11px; color: var(--err);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.pk-status:empty { display: none; }
 .lookin-head {
   display: flex; justify-content: space-between; align-items: center;
   font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.14em;

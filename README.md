@@ -18,10 +18,16 @@ CLI rather than re-implementing the harness, so the fork's diff does not grow.
 - [x] Conversation continuity via `--quick-resume` on turns 2+
 - [x] ANSI stripping, cancel button, single-active-run guard
 - [x] GRAN flush: official mark in the sidebar, grain veil, never-flat-black canvas, rune empty state, ember favicon (chrome only — the four contracts untouched)
-- [ ] Dictation-to-agent loop on-device (acceptance gap — planned)
-- [ ] Upgrade path: speak ACP (`spruce-grove --acp`) for structured
-  streaming/tool-call UI instead of line scraping
-- [ ] Directory picker for the working-dir field
+- [x] Dictation-to-agent loop on-device: mic → MediaRecorder →
+  `grove_save_recording` → `spruce-grove --transcribe` (local whisper rig) →
+  editable prompt. Remaining acceptance: one human mic click in the real
+  .app (the WKWebView grant cannot be automated — TEST-MAP).
+- [x] ACP live sessions (`spruce-grove --acp`): structured chunks, thinking,
+  tool cards with status chips, per-turn usage, mid-run steering, and
+  session resume across process death (`session/load`).
+- [x] Directory picker for the working-dir field: an in-webview folder
+  browser over `grove_list_dirs` — deliberately not a native dialog, so
+  the Playwright harness can drive it like every other flow.
 
 ## CLI resolution order
 
