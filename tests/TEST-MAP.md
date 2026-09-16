@@ -26,6 +26,7 @@ why the publish gate runs the CLI suite on every push.
 | **ACP contract fixture** | `src-tauri/acp.rs::replay_probe_fixture` + `fixtures/acp/session.jsonl` | The recorded `--acp` session replays through the real router: initialize (protocolVersion 1), ≥3 responses, message chunks present, available_commands present, zero agent-requests in no-tools mode. **Protocol drift fails loudly here first.** | `cargo test` (fixture is committed) |
 | UI integration | `tests/test_desktop_ui.py` | Real `ui/main.js` in Chromium: cwd seeding + version pill (initCwd regression), ACP ready pill with model, streaming chunks + thinking + tool cards with status chips, per-turn usage in status, **mid-run steer** (busy send → cancel → redirected prompt in same session), **live look-in** (screenshot path in tool payload → panel + data-URL image), dictation flow (fake mic → save → transcribe → editable prompt), **working-dir picker** (browse → descend → choose → ACP restart in the chosen dir; escape cancels untouched) | `~/SPRUCE-GROVE-OS/.venv/bin/python tests/test_desktop_ui.py` |
 | ACP dialect probe | `tests/acp_probe.py` | Ground-truth explorer against the real binary; `--lifecycle` proves **session/load survives process death** (marker recalled by a fresh agent) | `python3 tests/acp_probe.py [--lifecycle]` |
+| CI gate | `.github/workflows/ci.yml` | Every push/PR: `cargo test` (macOS), the UI suite (Linux, mocked IPC), and a `tauri build` whose plist lint re-proves the mic grant; the .app comes back as a CI artifact | push to `main` |
 
 ## Layer 3 — the seams (where engines and chassis meet)
 
@@ -47,9 +48,11 @@ why the publish gate runs the CLI suite on every push.
   against the real webview). macOS coverage therefore = Playwright
   (UI logic) + acp_probe --lifecycle (protocol) + one human smoke click
   (real WKWebView), by design of the platform, not by omission.
-- No CI runner for the desktop repo yet (macOS runner + `cargo test` +
-  Playwright would close the loop; the CLI's publish CI already gates the
-  engine side).
+- CI: **closed** — `.github/workflows/ci.yml` runs `cargo test` (macOS),
+  the Playwright UI suite (Linux runner, mocked IPC — no CLI needed), and a
+  `tauri build` bundle job that lints the built plist and uploads the .app
+  as an artifact. Still human: the two in-app smoke clicks (mic grant,
+  ACP pill) — WKWebView grants cannot be automated, by platform design.
 - VU meter / waveform in the recording window (YAGNI'd in build-log 27).
 
 ## The philosophy, in one line

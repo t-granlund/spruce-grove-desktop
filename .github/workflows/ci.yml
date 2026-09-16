@@ -1,0 +1,80 @@
+# The chassis gate. The CLI (engine) already gates itself via the fork's
+# publish workflow; this closes the loop on the desktop shell side, per
+# tests/TEST-MAP.md ("No CI runner for the desktop repo yet").
+#
+#   rust   — the Rust unit + ACP fixture replay (contract drift fails here)
+#   ui     — real ui/main.js in Chromium, mocked IPC bridge (no CLI needed)
+#   bundle — proves the .app path on every push and hands back an artifact
+#            (mic plist verified; the two human smoke clicks remain human)
+#
+# All three must stay green before a "works on my machine" claim is honest.
+
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  rust:
+    name: cargo test (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: unit + fixture replay
+        run: cargo test --locked
+        working-directory: src-tauri
+
+  ui:
+    name: UI integration (Chromium)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: playwright + chromium
+        run: |
+          pip install playwright
+          playwright install --with-deps chromium
+      - name: drive the real main.js
+        run: python tests/test_desktop_ui.py
+
+  bundle:
+    name: .app bundle (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: install tauri cli
+        run: npm ci
+      - name: build the .app
+        run: npm run build
+      - name: verify the bundle (mic grant present, plist sane)
+        run: |
+          APP="src-tauri/target/release/bundle/macos/Spruce Grove Desktop.app"
+          test -d "$APP" || { echo "bundle missing: $APP"; exit 1; }
+          plutil -lint "$APP/Contents/Info.plist"
+          grep -q NSMicrophoneUsageDescription "$APP/Contents/Info.plist" \
+            || { echo "mic grant missing from built plist"; exit 1; }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spruce-grove-desktop-app
+          path: src-tauri/target/release/bundle/macos/
+          retention-days: 14
