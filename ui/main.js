@@ -659,6 +659,33 @@ els.sidebarOpen.addEventListener("click", () => {
 
 const dictation = { recording: false, recorder: null, chunks: [], stream: null };
 
+/* the mic button carries an icon + label now — only the label ever moves */
+function micLabel(text) {
+  const lbl = els.mic.querySelector(".lbl");
+  if (lbl) lbl.textContent = text; else els.mic.textContent = text;
+}
+
+/* recording state lives in a chip: pulsing dot + elapsed seconds */
+let recTimer = null;
+function recChipShow() {
+  const chip = document.getElementById("rec-chip");
+  const time = document.getElementById("rec-time");
+  const t0 = Date.now();
+  const tick = () => {
+    if (!time) return;
+    const s = Math.floor((Date.now() - t0) / 1000);
+    time.textContent = Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+  };
+  tick();
+  recTimer = setInterval(tick, 1000);
+  chip?.classList.remove("hidden");
+}
+function recChipHide() {
+  clearInterval(recTimer);
+  recTimer = null;
+  document.getElementById("rec-chip")?.classList.add("hidden");
+}
+
 async function toggleDictation() {
   if (dictation.recording) { dictation.recorder?.stop(); return; }
   try {
@@ -673,8 +700,9 @@ async function toggleDictation() {
   dictation.recorder.onstop = finishDictation;
   dictation.recorder.start();
   dictation.recording = true;
-  els.mic.textContent = "stop";
+  micLabel("stop");
   els.mic.classList.add("rec");
+  recChipShow();
   els.status.textContent = state.busy
     ? "recording a steer — stop to redirect Cedar"
     : "recording — click stop when the thought is out";
@@ -683,8 +711,9 @@ async function toggleDictation() {
 async function finishDictation() {
   dictation.recording = false;
   els.mic.classList.remove("rec");
-  els.mic.textContent = "…";
+  micLabel("…");
   els.mic.disabled = true;
+  recChipHide();
   dictation.stream?.getTracks().forEach((t) => t.stop());
   dictation.stream = null;
   const blob = new Blob(dictation.chunks, { type: dictation.recorder?.mimeType || "audio/webm" });
@@ -704,7 +733,7 @@ async function finishDictation() {
     els.status.textContent = "dictation failed: " + String(err).split("\n")[0];
   } finally {
     els.mic.disabled = false;
-    els.mic.textContent = "record";
+    micLabel("record");
   }
 }
 

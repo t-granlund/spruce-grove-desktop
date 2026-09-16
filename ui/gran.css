@@ -352,8 +352,9 @@ textarea:focus {
   50% { box-shadow: 0 0 0 6px rgba(228, 170, 113, 0.1); }
 }
 
-/* the working-dir field stays machine-voiced */
-.field span { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
+/* the working-dir field stays machine-voiced — direct label span only,
+   so button labels inside the field keep their own voice */
+.field > span { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; }
 
 /* ============================ MOTION SCARCITY =======================
    Exactly three animations live here: the grove's breath (empty),
@@ -398,3 +399,34 @@ textarea:focus {
 @media (prefers-reduced-motion: reduce) {
   .quick-prompt { transition: none; }
 }
+
+/* ============================ 6 · THE REC CHIP ======================
+   Recording is a state, not a label swap: a pulsing ember dot, the word,
+   and the elapsed time — the only fourth animation, and it stills. */
+.rec-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em;
+  color: var(--ember); border: 1px solid var(--ember-line);
+  background: var(--ember-soft); border-radius: 999px;
+  padding: 5px 13px; white-space: nowrap;
+}
+.rec-chip.hidden { display: none; }
+.rec-chip .rec-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: var(--ember);
+  animation: rec-pulse 1.4s ease-in-out infinite;
+}
+.rec-chip #rec-time { color: var(--text-dim); font-variant-numeric: tabular-nums; }
+@media (prefers-reduced-motion: reduce) {
+  .rec-chip .rec-dot { animation: none; }
+}
+
+/* the paths triptych holds four hints now — wrap with rhythm, clip nothing */
+.empty-paths { flex-wrap: wrap; gap: 14px 26px; max-width: 760px; }
+.empty { max-width: 720px; }
+
+/* the canonical mark, sized to read: hairline strokes are the enemy */
+.side-mark { width: 54px; height: auto; display: block; flex: none; }
+
+/* topbar harmony: input and buttons share one height line */
+.topbar .btn { padding: 5px 13px; font-size: 12px; }
+.topbar .field input { padding: 6px 10px; }

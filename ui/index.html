@@ -20,11 +20,16 @@
       <!-- ============ left sidebar: sessions & directories ============ -->
       <aside class="sidebar" id="sidebar">
         <div class="side-brand">
-          <svg id="brand-mark" class="side-mark" viewBox="0 0 280 200" aria-hidden="true"><g stroke="#E4AA71" stroke-width="6.5" stroke-linejoin="round" stroke-linecap="round"><path d="M64 65.5 L75.3 101.4 L80.7 101.4 L88.5 134.1 L94.8 134.1 L101 159.1 L67.5 159.1 L67.5 170 L56.5 170 L56.5 159.1 L23 159.1 L29.2 134.1 L35.5 134.1 L43.3 101.4 L48.7 101.4 Z" fill="#101812" stroke-opacity=".6"/><path d="M218 65.5 L229.3 101.4 L223.7 101.4 L215.9 134.1 L209.6 134.1 L203.4 159.1 L235.9 159.1 L235.9 170 L247.1 170 L247.1 159.1 L280.4 159.1 L274.2 134.1 L267.9 134.1 L260.1 101.4 L254.7 101.4 Z" fill="#101812" stroke-opacity=".6"/><path d="M140 35.9 L159.6 88.8 L167.6 88.8 L179.1 137.1 L188.3 137.1 L197.5 173.9 L148.1 173.9 L148.1 190 L132 190 L132 173.9 L82.5 173.9 L91.7 137.1 L100.9 137.1 L112.4 88.8 L120.5 88.8 Z" fill="#1D2A21"/></g></svg>
+          <svg id="brand-mark" class="side-mark" viewBox="0 0 320 232" aria-hidden="true"><g fill="none" stroke-linejoin="round" stroke-linecap="round">
+            <path d="M78 96 L48 141 L63 141 L40.5 176 L68 176 L68 196 L88 196 L88 176 L115.5 176 L93 141 L108 141 Z" fill="#D1CEC5" fill-opacity="0.14" stroke="#D1CEC5" stroke-opacity="0.85" stroke-width="12"/>
+            <path d="M242 96 L212 141 L227 141 L204.5 176 L232 176 L232 196 L252 196 L252 176 L279.5 176 L257 141 L272 141 Z" fill="#D1CEC5" fill-opacity="0.14" stroke="#D1CEC5" stroke-opacity="0.85" stroke-width="12"/>
+            <path d="M160 46 L115 113.5 L137.5 113.5 L103.75 166 L145 166 L145 196 L175 196 L175 166 L216.25 166 L182.5 113.5 L205 113.5 Z" fill="#E4AA71" fill-opacity="0.2" stroke="#E4AA71" stroke-width="17"/>
+            <path d="M28 206 H292" stroke="#D1CEC5" stroke-opacity="0.9" stroke-width="10"/>
+          </g></svg>
           <h1 class="wordmark">Spruce Grove<span class="leaf">.</span></h1>
           <button id="sidebar-toggle" class="icon-btn" title="collapse sidebar">&laquo;</button>
         </div>
-        <button id="new-chat" class="btn solid wide" title="start a fresh session in the current directory">+ new chat</button>
+        <button id="new-chat" class="btn solid wide" title="start a fresh session in the current directory"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" fill="none"/></svg><span class="lbl">new chat</span></button>
 
         <div class="side-sec sessions">
           <div class="side-label">sessions</div>
@@ -49,14 +54,14 @@
           <label class="field" title="the directory the agent works in">
             <span>working dir</span>
             <input id="cwd" type="text" spellcheck="false" />
-            <button id="cwd-browse" class="btn ghost" title="browse for the working directory">browse</button>
+            <button id="cwd-browse" class="btn ghost" title="browse for the working directory"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.8 4.5c0-.9.7-1.6 1.6-1.6h3l1.6 1.7h4.6c.9 0 1.6.7 1.6 1.6v5.3c0 .9-.7 1.6-1.6 1.6H3.4c-.9 0-1.6-.7-1.6-1.6V4.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" fill="none"/></svg><span class="lbl">browse</span></button>
           </label>
-          <button id="lookin" class="btn ghost" title="Live browser look-in: screenshots and actions as the agent works">look-in</button>
+          <button id="lookin" class="btn ghost" title="Live browser look-in: screenshots and actions as the agent works"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 8s2.4-4.2 6.5-4.2S14.5 8 14.5 8s-2.4 4.2-6.5 4.2S1.5 8 1.5 8Z" stroke="currentColor" stroke-width="1.4" fill="none"/><circle cx="8" cy="8" r="1.9" stroke="currentColor" stroke-width="1.4" fill="none"/></svg><span class="lbl">look-in</span></button>
         </header>
 
         <section id="transcript" class="transcript" aria-live="polite">
           <div class="empty" id="empty-state">
-            <svg class="empty-rune" viewBox="0 0 120 24" aria-hidden="true"><g stroke="#E4AA71" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".6"><path d="M60 3 V21 M60 10 L45 4 M60 10 L75 4"/><path d="M10 12 H42 M78 12 H110" opacity=".45"/></g></svg>
+            <svg class="empty-rune" viewBox="0 0 120 24" aria-hidden="true"><g stroke="#E4AA71" stroke-width="2.4" fill="none" stroke-linecap="round"><path d="M60 3 V21 M60 12 L46 3.5 M60 12 L74 3.5"/><path d="M8 12 H40 M80 12 H112" opacity=".5" stroke-width="1.8"/></g></svg>
             <h2 class="empty-title">The grove is listening.</h2>
             <p>
               Speak or type. Every prompt runs through the groomed CLI in the working
@@ -89,7 +94,8 @@
               placeholder="Ask the grove... (Enter to send, Shift+Enter for newline)"
             ></textarea>
             <div class="actions">
-              <button id="mic" class="btn ghost mic" title="Dictation: record, transcribe on-device with the local whisper rig, edit here, then send">record</button>
+              <button id="mic" class="btn ghost mic" title="Dictation: record, transcribe on-device with the local whisper rig, edit here, then send"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="5.6" y="1.5" width="4.8" height="8" rx="2.4" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M3.2 7.4a4.8 4.8 0 0 0 9.6 0M8 12.2v2.3" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"/></svg><span class="lbl">record</span></button>
+              <span id="rec-chip" class="rec-chip hidden" aria-live="polite"><i class="rec-dot"></i><span class="rec-word">REC</span><span id="rec-time">0:00</span></span>
               <button id="cancel" class="btn ghost" disabled>cancel</button>
               <button id="send" class="btn solid">send</button>
             </div>
