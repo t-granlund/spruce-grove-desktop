@@ -32,6 +32,10 @@ const els = {
   lookinImg: document.getElementById("lookin-img"),
   lookinLog: document.getElementById("lookin-log"),
   lookinClose: document.getElementById("lookin-close"),
+  inspector: document.getElementById("inspector"),
+  inspectorToggle: document.getElementById("inspector-toggle"),
+  inspRefresh: document.getElementById("insp-refresh"),
+  inspClose: document.getElementById("insp-close"),
   sessionList: document.getElementById("session-list"),
   dirList: document.getElementById("dir-list"),
   newChat: document.getElementById("new-chat"),
@@ -368,6 +372,188 @@ function handleToolForLookin(update) {
   if (m && m[1]) { lookinLog("screenshot captured"); lookinShowScreenshot(m[1]); }
 }
 
+/* ============================ inspector =========================== */
+/* Right rail: repository state (live git), GitHub (live gh), and this
+   session's turns. Everything read-only; every row with a URL opens in
+   the browser, every file row opens with the default app. */
+
+const turns = [];
+let inspectorOpen = false;
+
+function pushTurn(text) {
+  // a fresh turn closes any turn left running (e.g. a canceled steer)
+  turns.forEach((t) => { if (t.state === "running") t.state = "canceled"; });
+  turns.unshift({ text: text.slice(0, 64), at: Date.now(), state: "running" });
+  if (turns.length > 12) turns.length = 12;
+  renderTurns();
+}
+
+function finishTurn(data) {
+  const t = turns.find((x) => x.state === "running");
+  if (!t) return;
+  t.state = data && data.ok === false ? "failed" : "done";
+  t.secs = Math.round((Date.now() - t.at) / 1000);
+  t.tokens = data && data.result && data.result.usage ? data.result.usage.totalTokens : null;
+  renderTurns();
+  if (inspectorOpen) loadInspector();
+}
+
+const TURN_GLYPH = { running: "●", done: "✓", failed: "✗", canceled: "·" };
+
+function renderTurns() {
+  const el0 = document.getElementById("insp-turns");
+  if (!el0) return;
+  el0.textContent = "";
+  if (!turns.length) {
+    el0.appendChild(el2("div", "insp-empty", "no turns yet"));
+    return;
+  }
+  for (const t of turns) {
+    const row = el2("div", "insp-row insp-turn");
+    const glyph = el2("span", "insp-glyph g-" + t.state, TURN_GLYPH[t.state] || "·");
+    const body = el2("span", "insp-main", t.text);
+    const meta = el2("span", "insp-meta");
+    const parts = [];
+    if (t.secs != null) parts.push(t.secs + "s");
+    if (t.tokens) parts.push(Number(t.tokens).toLocaleString() + " tok");
+    meta.textContent = parts.join(" · ");
+    row.append(glyph, body, meta);
+    el0.appendChild(row);
+  }
+}
+
+/* tiny element helper (named to dodge the .who `el` in older scopes) */
+function el2(tag, cls, text) {
+  const n = document.createElement(tag);
+  if (cls) n.className = cls;
+  if (text != null) n.textContent = text;
+  return n;
+}
+
+function inspList(container, rows, render) {
+  container.textContent = "";
+  if (!rows || !rows.length) {
+    container.appendChild(el2("div", "insp-empty", "—"));
+    return;
+  }
+  for (const r of rows) container.appendChild(render(r));
+}
+
+function renderInspector(st) {
+  const branch = document.getElementById("insp-branch");
+  branch.textContent = "";
+  branch.append(
+    el2("span", "insp-branch-name", "⎇ " + (st.branch || "?")),
+    st.dirty_total
+      ? el2("span", "insp-dirty-badge", st.dirty_total + " uncommitted")
+      : el2("span", "insp-dirty-badge clean", "clean"),
+  );
+
+  inspList(document.getElementById("insp-commits"), st.commits, (c) => {
+    const row = el2("button", "insp-row insp-click");
+    if (st.repo) row.dataset.url = `https://github.com/${st.repo}/commit/${c.hash}`;
+    row.title = c.subject;
+    row.append(
+      el2("span", "insp-hash", c.hash),
+      el2("span", "insp-main", c.subject),
+      el2("span", "insp-meta", c.when || ""),
+    );
+    return row;
+  });
+
+  const dirtyEl = document.getElementById("insp-dirty");
+  inspList(dirtyEl, st.dirty, (f) => {
+    const row = el2("button", "insp-row insp-click");
+    row.dataset.path = f.path;
+    row.title = "open " + f.path;
+    row.append(el2("span", "insp-hash", f.status), el2("span", "insp-main", f.path));
+    return row;
+  });
+  if (!st.dirty_total) {
+    dirtyEl.textContent = "";
+    dirtyEl.appendChild(el2("div", "insp-empty", "working tree clean"));
+  }
+
+  const gh = st.github || {};
+  const links = document.getElementById("insp-gh-links");
+  links.textContent = "";
+  if (st.urls) {
+    for (const [label, url] of Object.entries(st.urls)) {
+      const a = el2("button", "insp-link", label);
+      a.dataset.url = url;
+      a.title = url;
+      links.appendChild(a);
+    }
+  } else {
+    links.appendChild(el2("span", "insp-empty", "no github origin"));
+  }
+
+  inspList(document.getElementById("insp-prs"), gh.gh_ok ? gh.prs : null, (p) => {
+    const row = el2("button", "insp-row insp-click");
+    row.dataset.url = p.url;
+    row.append(el2("span", "insp-hash", "#" + p.number), el2("span", "insp-main", p.title));
+    return row;
+  });
+  if (!gh.gh_ok) {
+    document.getElementById("insp-prs").appendChild(el2("div", "insp-empty", gh.note || "gh unavailable"));
+    document.getElementById("insp-runs").appendChild(el2("div", "insp-empty", "—"));
+  }
+
+  inspList(document.getElementById("insp-runs"), gh.gh_ok ? gh.runs : null, (r) => {
+    const row = el2("button", "insp-row insp-click");
+    if (r.url) row.dataset.url = r.url;
+    const glyph = el2("span", "insp-glyph");
+    glyph.textContent = r.conclusion === "success" ? "✓" : r.conclusion === "failure" ? "✗" : "●";
+    glyph.classList.add(r.conclusion === "success" ? "g-done" : r.conclusion === "failure" ? "g-failed" : "g-running");
+    row.append(glyph, el2("span", "insp-main", r.displayTitle || "run"));
+    return row;
+  });
+}
+
+async function loadInspector() {
+  const cwd = els.cwd.value.trim();
+  if (!cwd) return;
+  try {
+    renderInspector(await invoke("grove_git_state", { cwd }));
+  } catch (err) {
+    const branch = document.getElementById("insp-branch");
+    branch.textContent = "";
+    branch.appendChild(el2("span", "insp-empty", String(err).split("\n")[0]));
+    ["insp-commits", "insp-dirty", "insp-prs", "insp-runs"].forEach((id) => {
+      const n = document.getElementById(id);
+      n.textContent = "";
+      n.appendChild(el2("div", "insp-empty", "—"));
+    });
+    const links = document.getElementById("insp-gh-links");
+    links.textContent = "";
+    links.appendChild(el2("span", "insp-empty", "no github origin"));
+  }
+  renderTurns();
+}
+
+function toggleInspector(force) {
+  inspectorOpen = force != null ? force : !inspectorOpen;
+  els.inspector.classList.toggle("hidden", !inspectorOpen);
+  els.inspectorToggle.classList.toggle("active", inspectorOpen);
+  if (inspectorOpen) loadInspector();
+}
+
+els.inspector.addEventListener("click", (ev) => {
+  const t = ev.target.closest("[data-url],[data-path]");
+  if (!t) return;
+  if (t.dataset.url) invoke("grove_open_url", { url: t.dataset.url }).catch(() => {});
+  else if (t.dataset.path) invoke("grove_open_path", { path: t.dataset.path }).catch(() => {});
+});
+els.inspectorToggle.addEventListener("click", () => toggleInspector());
+els.inspRefresh.addEventListener("click", () => loadInspector());
+els.inspClose.addEventListener("click", () => toggleInspector(false));
+document.addEventListener("keydown", (ev) => {
+  if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "i" && !ev.shiftKey) {
+    ev.preventDefault();
+    toggleInspector();
+  }
+});
+
 /* ============================ ACP events ========================== */
 
 async function handleAcpEvent(event) {
@@ -410,6 +596,7 @@ async function handleAcpEvent(event) {
       }
       break;
     case "turn-end": {
+      finishTurn(data);
       const usage = data && data.result && data.result.usage;
       const toks = usage ? " · " + Number(usage.totalTokens || 0).toLocaleString() + " tok" : "";
       const why = (data && data.result && data.result.stopReason) || (data && data.ok === false ? "error" : "done");
@@ -521,6 +708,7 @@ async function sendPrompt() {
   if (!prompt || !cwd || state.busy) return;
 
   localStorage.setItem("grove.cwd", cwd);
+  pushTurn(prompt);
   const userPre = addMessage("user", "you");
   userPre.textContent = prompt;
   currentAgentPre = null;

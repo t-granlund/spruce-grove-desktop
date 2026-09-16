@@ -430,3 +430,16 @@ textarea:focus {
 /* topbar harmony: input and buttons share one height line */
 .topbar .btn { padding: 5px 13px; font-size: 12px; }
 .topbar .field input { padding: 6px 10px; }
+
+/* ===================== 7 · THE INSPECTOR ===========================
+   Trust at a glance: the repo's state, the grove's GitHub pulse, and
+   the session's turns — one rail, mono labels, ember on the live bits. */
+#inspector-toggle.active,
+#inspector-toggle:hover { border-color: var(--ember-line); color: var(--ember); }
+.insp-title { color: var(--ember); }
+.insp-sec .side-label { padding: 8px 0 5px; }
+.insp-row { transition: background 0.15s, border-color 0.15s; }
+.insp-turn .insp-main { font-family: var(--serif); font-size: 13px; color: var(--ink, var(--text)); }
+.insp-turn .insp-glyph.g-running { color: var(--ember); }
+.insp-dirty-badge { background: var(--ember-soft); }
+.insp-dirty-badge.clean { background: var(--moss-soft); }

@@ -57,6 +57,7 @@
             <button id="cwd-browse" class="btn ghost" title="browse for the working directory"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.8 4.5c0-.9.7-1.6 1.6-1.6h3l1.6 1.7h4.6c.9 0 1.6.7 1.6 1.6v5.3c0 .9-.7 1.6-1.6 1.6H3.4c-.9 0-1.6-.7-1.6-1.6V4.5Z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round" fill="none"/></svg><span class="lbl">browse</span></button>
           </label>
           <button id="lookin" class="btn ghost" title="Live browser look-in: screenshots and actions as the agent works"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 8s2.4-4.2 6.5-4.2S14.5 8 14.5 8s-2.4 4.2-6.5 4.2S1.5 8 1.5 8Z" stroke="currentColor" stroke-width="1.4" fill="none"/><circle cx="8" cy="8" r="1.9" stroke="currentColor" stroke-width="1.4" fill="none"/></svg><span class="lbl">look-in</span></button>
+          <button id="inspector-toggle" class="btn ghost" title="Inspector: repository state, live GitHub, session turns (⌘I)"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.8" y="2.5" width="12.4" height="11" rx="1.6" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M10.2 2.5v11" stroke="currentColor" stroke-width="1.4"/></svg><span class="lbl">inspector</span></button>
         </header>
 
         <section id="transcript" class="transcript" aria-live="polite">
@@ -83,6 +84,37 @@
           </div>
           <img id="lookin-img" alt="latest browser screenshot" />
           <div id="lookin-log" class="lookin-log"></div>
+        </aside>
+
+        <aside id="inspector" class="inspector hidden" aria-label="Inspector: repository, GitHub, session">
+          <div class="insp-head">
+            <span class="insp-title">inspector</span>
+            <button id="insp-refresh" class="icon-btn" title="refresh">&#8635;</button>
+            <button id="insp-close" class="icon-btn" title="hide">&times;</button>
+          </div>
+          <div class="insp-body">
+            <section class="insp-sec">
+              <div class="side-label">repository</div>
+              <div id="insp-branch" class="insp-branch" title="current branch"></div>
+              <div id="insp-commits" class="insp-list"></div>
+            </section>
+            <section class="insp-sec">
+              <div class="side-label">working tree</div>
+              <div id="insp-dirty" class="insp-list"></div>
+            </section>
+            <section class="insp-sec">
+              <div class="side-label">github</div>
+              <div id="insp-gh-links" class="insp-links"></div>
+              <div class="side-label sub">pull requests</div>
+              <div id="insp-prs" class="insp-list"></div>
+              <div class="side-label sub">workflow runs</div>
+              <div id="insp-runs" class="insp-list"></div>
+            </section>
+            <section class="insp-sec">
+              <div class="side-label">this session</div>
+              <div id="insp-turns" class="insp-list"></div>
+            </section>
+          </div>
         </aside>
 
         <footer class="composer">

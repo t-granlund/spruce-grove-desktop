@@ -286,6 +286,72 @@ textarea:focus-visible { outline: none; border-color: var(--glow); }
 }
 ::-webkit-scrollbar-thumb:hover { background-color: rgba(88, 143, 94, 0.6); }
 
+/* ============================ inspector =========================== */
+/* Right rail: repo state, live GitHub, session turns. Mirror of the
+   sidebar's discipline: mono labels, hairline rows, ember where you are. */
+.inspector {
+  position: fixed; top: 57px; right: 0; bottom: 0; width: 320px; z-index: 45;
+  display: flex; flex-direction: column;
+  background: var(--bg-elev); border-left: 1px solid var(--line);
+  box-shadow: -18px 0 40px rgba(0, 0, 0, 0.35);
+  border-radius: 0;
+}
+.inspector.hidden { display: none; }
+.insp-head {
+  display: flex; align-items: center; gap: 8px;
+  padding: 14px 14px 12px; border-bottom: 1px solid var(--line);
+}
+.insp-title {
+  flex: 1; font-family: var(--mono); font-size: 10px;
+  letter-spacing: 0.2em; text-transform: uppercase; color: var(--cedar);
+}
+.insp-body { flex: 1; overflow-y: auto; padding: 4px 0 16px; }
+.insp-sec { padding: 10px 14px 6px; }
+.insp-sec .side-label.sub { padding: 10px 0 4px; opacity: 0.75; }
+.insp-branch { display: flex; align-items: center; gap: 8px; padding: 2px 0 8px; }
+.insp-branch-name { font-family: var(--mono); font-size: 12px; color: var(--mint); }
+.insp-dirty-badge {
+  font-family: var(--mono); font-size: 9.5px; letter-spacing: 0.08em;
+  border: 1px solid var(--ember-line); color: var(--ember);
+  border-radius: 999px; padding: 2px 9px;
+}
+.insp-dirty-badge.clean { border-color: var(--halo); color: var(--glow); }
+.insp-list { display: flex; flex-direction: column; gap: 2px; }
+.insp-row {
+  display: flex; align-items: center; gap: 8px; width: 100%;
+  text-align: left; background: transparent; border: 1px solid transparent;
+  border-radius: var(--radius-sm); padding: 6px 8px; cursor: pointer;
+  color: var(--text-dim); font: inherit; font-size: 12px;
+}
+button.insp-row:hover { background: var(--bg-card); border-color: var(--line); color: var(--text); }
+div.insp-row { cursor: default; }
+.insp-glyph { flex: none; width: 14px; text-align: center; font-size: 11px; }
+.insp-glyph.g-running { color: var(--cedar); animation: pulse 1.2s infinite; }
+.insp-glyph.g-done { color: var(--glow); }
+.insp-glyph.g-failed { color: var(--err); }
+.insp-glyph.g-canceled { color: var(--text-faint); }
+.insp-main {
+  flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  color: var(--text);
+}
+.insp-hash {
+  flex: none; font-family: var(--mono); font-size: 10.5px; color: var(--ember);
+}
+.insp-meta {
+  flex: none; font-family: var(--mono); font-size: 9.5px; color: var(--text-faint);
+}
+.insp-links { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 0 4px; }
+.insp-link {
+  font-family: var(--mono); font-size: 10.5px; letter-spacing: 0.06em;
+  color: var(--text-dim); background: transparent; cursor: pointer;
+  border: 1px solid var(--line); border-radius: 999px; padding: 3px 11px;
+  transition: border-color 0.15s, color 0.15s;
+}
+.insp-link:hover { border-color: var(--cedar); color: var(--cedar); }
+.insp-empty {
+  font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); padding: 4px 8px;
+}
+
 /* ============================ look-in ============================= */
 .lookin {
   position: fixed; top: 66px; right: 16px; width: 400px; max-height: calc(100vh - 220px);

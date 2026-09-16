@@ -13,6 +13,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 mod acp;
+mod inspector;
 
 struct ActiveRun(Mutex<Option<Child>>);
 
@@ -468,7 +469,10 @@ fn main() {
             grove_acp_cancel,
             grove_acp_kill,
             grove_bridge_probe_ack,
-            grove_boot_marker
+            grove_boot_marker,
+            inspector::grove_git_state,
+            inspector::grove_open_path,
+            inspector::grove_open_url
         ])
         .run(tauri::generate_context!())
         .expect("error while running spruce-grove desktop");

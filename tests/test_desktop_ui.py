@@ -72,6 +72,30 @@ window.__TAURI__ = {
         return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==";
       }
       if (cmd === "grove_send") return undefined;
+      if (cmd === "grove_git_state") {
+        if (!args.cwd) throw new Error("no cwd");
+        return {
+          branch: "main",
+          dirty: [{ status: "M", path: "ui/main.js" }],
+          dirty_total: 1,
+          commits: [{ hash: "abc1234", subject: "fix the thing", when: "2h ago" }],
+          repo: "t-granlund/spruce-grove-desktop",
+          urls: {
+            repo: "https://github.com/t-granlund/spruce-grove-desktop",
+            commits: "https://github.com/t-granlund/spruce-grove-desktop/commits",
+            actions: "https://github.com/t-granlund/spruce-grove-desktop/actions",
+            pulls: "https://github.com/t-granlund/spruce-grove-desktop/pulls",
+            issues: "https://github.com/t-granlund/spruce-grove-desktop/issues",
+          },
+          github: {
+            gh_ok: true,
+            repo: "t-granlund/spruce-grove-desktop",
+            prs: [{ number: 7, title: "Add inspector drawer", url: "https://github.com/t-granlund/spruce-grove-desktop/pull/7" }],
+            runs: [{ displayTitle: "ci", url: "https://github.com/t-granlund/spruce-grove-desktop/actions/runs/99", status: "completed", conclusion: "success" }],
+          },
+        };
+      }
+      if (cmd === "grove_open_url" || cmd === "grove_open_path") return undefined;
       return undefined;
     },
   },
@@ -267,6 +291,36 @@ def main() -> int:
             )
             if not page.input_value("#cwd").endswith("proj-a"):
                 failures.append("picker cancel changed the cwd")
+
+            # -- 13. inspector: drawer opens, renders repo/gh/turns --------
+            page.click("#inspector-toggle")
+            page.wait_for_selector("#inspector:not(.hidden)", timeout=4000)
+            page.wait_for_function(
+                "() => (document.getElementById('insp-branch').textContent || '').includes('main')",
+                timeout=4000,
+            )
+            body = page.text_content("#inspector") or ""
+            for needle in ("abc1234", "fix the thing", "ui/main.js", "#7",
+                           "Add inspector drawer", "uncommitted"):
+                if needle not in body:
+                    failures.append(f"inspector missing {needle!r}")
+            # a turn row from the section-3 send, marked done with tokens
+            page.wait_for_function(
+                "() => (document.getElementById('insp-turns').textContent || '').includes('Say the thing.')",
+                timeout=4000,
+            )
+            # clicking a workflow run opens its URL through the shell
+            page.click("#insp-runs .insp-row")
+            page.wait_for_function(
+                "() => window.__calls.some(c => c.cmd === 'grove_open_url' && (c.args.url||'').includes('/actions/runs/99'))",
+                timeout=4000,
+            )
+            # close via the X
+            page.click("#insp-close")
+            page.wait_for_function(
+                "() => document.getElementById('inspector').classList.contains('hidden')",
+                timeout=4000,
+            )
 
             if errors:
                 failures.append(f"page errors: {errors}")
