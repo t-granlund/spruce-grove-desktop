@@ -180,7 +180,15 @@ async function startAcp(cwd, resumeId, forceRestart) {
     activeSessionId = res.sessionId;
     if (!acp.firstPrompt) acp.firstPrompt = null;
     localStorage.setItem("grove.cwd", cwd);
-    upsertSession(res.sessionId, cwd, res.resumed ? null : "new session");
+    const prev = resumeId ? sessions.find((s) => s.id === resumeId) : null;
+    if (prev && res.sessionId !== resumeId) {
+      // a revival minted a new session id: carry the old row's title,
+      // drop the old row — restarts must not litter the sidebar
+      upsertSession(res.sessionId, cwd, prev.title || null);
+      dropSession(resumeId);
+    } else {
+      upsertSession(res.sessionId, cwd, res.resumed ? null : "new session");
+    }
     els.mode.textContent = `ACP · ${res.model || "live"}${res.resumed ? " · resumed" : ""}`;
     els.mode.dataset.state = "acp";
     els.status.textContent = res.resumed
@@ -390,7 +398,10 @@ async function handleAcpEvent(event) {
       }
       break;
     case "error":
-      if (data && data.message) els.status.textContent = data.message;
+      if (data && data.message) {
+        els.status.textContent = data.message;
+        if (/agent process exited/.test(data.message)) selfHeal(acp.sessionId);
+      }
       break;
     case "log":
       // CLI diagnostics stream: show the latest line while a turn is live
@@ -437,6 +448,25 @@ async function handleAcpEvent(event) {
 const STALL_WARN_MS = 75000;
 const STALL_KILL_MS = 80000;
 let stallState = null; // null | "warned"
+
+/* Self-heal: the CLI also EXITS outright on provider hiccups (observed:
+   ModelAPIError connection error kills it after a turn). The death arrives
+   as an error event; revive the session quietly — resume carries the
+   history, the next send just works. No human incantation. */
+let healing = false;
+function selfHeal(deadId) {
+  if (healing || !deadId || !acp.ready) return;
+  healing = true;
+  const cwd = els.cwd.value.trim();
+  els.status.textContent = "cli exited — reviving the session…";
+  setTimeout(async () => {
+    invoke("grove_acp_kill").catch(() => {});
+    acp.ready = false;
+    try { await startAcp(cwd, deadId, true); }
+    catch { /* startAcp handles its own fallbacks */ }
+    healing = false;
+  }, 500);
+}
 
 setInterval(() => {
   if (!acp.turnActive || !acp.ready) { stallState = null; return; }

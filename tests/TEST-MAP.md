@@ -37,7 +37,7 @@ why the publish gate runs the CLI suite on every push.
 | Dictation → `--transcribe` verb | CLI side verified against real audio (Station 4 wav/m4a); UI side verified with mocked IPC | `spruce-grove --transcribe file` |
 | Packaged-app mic (WKWebView grant) | plist declared (`NSMicrophoneUsageDescription` in built bundle, plutil-verified + CI-grepped); **the tap is human**: one mic click in the real .app | `npm run build` → open → record |
 | Packaged-app ACP smoke (pill flips to `ACP · syn:large:text`, streamed prompt) | **human click** — but the bridge half is now automated by the probe; what remains human is eyes-on streaming | open the .app → send a prompt |
-| Agent death mid-turn | stdout EOF now emits an `error` event and fails every pending request (unit-tested) — a dead agent ends the turn honestly instead of hanging until the 80s watchdog | kill the CLI during a turn → turn-end with error |
+| Agent death mid-turn | stdout EOF now emits an `error` event and fails every pending request (unit-tested) — a dead agent ends the turn honestly instead of hanging until the 80s watchdog; the UI then **self-heals**: quiet kill + resume restart (observed live cause: provider `ModelAPIError: Connection error` kills the CLI after a turn), carrying the old session's sidebar title and dropping its stale row | `kill -9` the CLI child → revived child + ready pill within seconds, no human click |
 | Relaunch durability | **proven at protocol level** (`--lifecycle`); UI wires resume via stored session id per cwd | relaunch the app → pill shows `· resumed` |
 
 ## Known gaps (tracked, not hidden)
