@@ -415,9 +415,15 @@ fn grove_boot_marker(name: String, note: Option<String>) -> Result<(), String> {
         .map_err(|e| format!("boot marker: {e}"))
 }
 
+/// Marker path for THIS process: per-PID so a previous instance's ack can
+/// never short-circuit a later probe's retry loop.
+fn bridge_probe_marker() -> std::path::PathBuf {
+    std::env::temp_dir().join(format!("spruce-grove-bridge-probe-{}", std::process::id()))
+}
+
 #[tauri::command]
 fn grove_bridge_probe_ack() -> Result<String, String> {
-    let path = std::env::temp_dir().join("spruce-grove-bridge-probe");
+    let path = bridge_probe_marker();
     let stamp = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_millis())
@@ -436,7 +442,7 @@ fn main() {
             // a one-shot probe would be a race, not an instrument
             let handle = app.handle().clone();
             std::thread::spawn(move || {
-                let marker = std::env::temp_dir().join("spruce-grove-bridge-probe");
+                let marker = bridge_probe_marker();
                 for attempt in 0..30 {
                     if marker.exists() {
                         break;
