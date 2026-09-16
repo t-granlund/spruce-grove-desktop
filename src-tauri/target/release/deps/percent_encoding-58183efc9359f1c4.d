@@ -1,8 +1,0 @@
-/Users/tygranlund/spruce-grove-desktop/src-tauri/target/release/deps/percent_encoding-58183efc9359f1c4.d: /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/percent-encoding-2.3.2/src/lib.rs /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/percent-encoding-2.3.2/src/ascii_set.rs
-
-/Users/tygranlund/spruce-grove-desktop/src-tauri/target/release/deps/libpercent_encoding-58183efc9359f1c4.rlib: /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/percent-encoding-2.3.2/src/lib.rs /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/percent-encoding-2.3.2/src/ascii_set.rs
-
-/Users/tygranlund/spruce-grove-desktop/src-tauri/target/release/deps/libpercent_encoding-58183efc9359f1c4.rmeta: /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/percent-encoding-2.3.2/src/lib.rs /Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/percent-encoding-2.3.2/src/ascii_set.rs
-
-/Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/percent-encoding-2.3.2/src/lib.rs:
-/Users/tygranlund/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/percent-encoding-2.3.2/src/ascii_set.rs:
