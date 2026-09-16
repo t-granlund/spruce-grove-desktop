@@ -22,7 +22,7 @@ use std::io::{BufRead, BufReader, Write};
 use std::process::{Child, ChildStdin, Command, Stdio};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{mpsc, Arc, Mutex};
-use tauri::{AppHandle, Emitter, Manager};
+use tauri::{AppHandle, Emitter};
 
 pub const PROTOCOL_VERSION: u64 = 1;
 
@@ -254,7 +254,6 @@ pub fn start(
     // Reader loop: route every line, emit UI events, auto-answer agent
     // requests so a turn can never hang on an unanswered permission.
     let pending_reader = pending.clone();
-    let next_id_reader = next_id.clone();
     let stdin_reader = stdin.clone();
     let app_reader = app.clone();
     std::thread::spawn(move || {

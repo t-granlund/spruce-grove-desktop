@@ -7,7 +7,7 @@
 
 use std::io::{BufRead, BufReader};
 use std::process::{Child, Command, Stdio};
-use std::sync::{Arc, Mutex};
+use std::sync::Mutex;
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
