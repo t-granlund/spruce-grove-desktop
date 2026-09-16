@@ -394,6 +394,8 @@ function finishTurn(data) {
   t.state = data && data.ok === false ? "failed" : "done";
   t.secs = Math.round((Date.now() - t.at) / 1000);
   t.tokens = data && data.result && data.result.usage ? data.result.usage.totalTokens : null;
+  if (t.state === "failed") counters.turnsFailed++; else counters.turnsDone++;
+  if (t.tokens) counters.tokens += t.tokens;
   renderTurns();
   if (inspectorOpen) loadInspector();
 }
@@ -532,7 +534,12 @@ async function loadInspector() {
 }
 
 function toggleInspector(force) {
-  inspectorOpen = force != null ? force : !inspectorOpen;
+  const opening = force != null ? force : !inspectorOpen;
+  if (opening && !personaAllows("inspector")) {
+    els.status.textContent = "persona \"" + (activePersona()?.name || "?") + "\" may not open the inspector";
+    return;
+  }
+  inspectorOpen = opening;
   els.inspector.classList.toggle("hidden", !inspectorOpen);
   els.inspectorToggle.classList.toggle("active", inspectorOpen);
   localStorage.setItem("grove.inspector", inspectorOpen ? "1" : "");
@@ -553,6 +560,290 @@ document.addEventListener("keydown", (ev) => {
     ev.preventDefault();
     toggleInspector();
   }
+});
+
+/* ============================ diagnostics ========================== */
+/* The inspector's second pane: platform, engine seams, analytics, and
+   the session's error ring — the oversight half of "full oversight". */
+
+let diagVisible = false;
+
+function kvRow(k, v) {
+  const row = el2("div", "kv");
+  row.append(el2("span", "k", k), el2("span", "v", String(v)));
+  return row;
+}
+
+function renderDiag(d) {
+  if (!d) return;
+  const platform = document.getElementById("diag-platform");
+  platform.textContent = "";
+  platform.append(
+    kvRow("os", d.os), kvRow("arch", d.arch),
+    kvRow("app", "v" + d.app_version), kvRow("pid", d.pid),
+    kvRow("cli", (els.cliVersion.textContent || "").replace(/^cli:\s*/, "")),
+  );
+  const engine = document.getElementById("diag-engine");
+  engine.textContent = "";
+  engine.append(
+    kvRow("event bridge", d.bridge_probe_acked ? "live (probe acked)" : "DEAD — no probe ack"),
+    kvRow("webview scripts", d.boot_mainjs ? "loaded" : "not seen"),
+    kvRow("event listeners", d.boot_listen_ok ? "registered" : "not seen"),
+    kvRow("acp session", acp.sessionId ? acp.sessionId.slice(0, 16) : "none"),
+    kvRow("acp model", acp.model || "—"),
+  );
+  const analytics = document.getElementById("diag-analytics");
+  analytics.textContent = "";
+  analytics.append(
+    kvRow("turns done", counters.turnsDone),
+    kvRow("turns failed", counters.turnsFailed),
+    kvRow("tokens (session)", counters.tokens.toLocaleString()),
+    kvRow("self-heals", counters.heals),
+    kvRow("watchdog fires", counters.watchdog),
+    kvRow("errors (ring)", errorRing.length),
+  );
+  const errs = document.getElementById("diag-errors");
+  errs.textContent = "";
+  if (!errorRing.length) {
+    errs.appendChild(el2("div", "insp-empty", "clean — nothing to report"));
+  }
+  for (const e of errorRing) {
+    const row = el2("div", "insp-row");
+    row.append(
+      el2("span", "insp-meta", e.at),
+      el2("span", "insp-hash", e.source),
+      el2("span", "insp-main", e.message),
+    );
+    errs.appendChild(row);
+  }
+}
+
+async function refreshDiag() {
+  try { renderDiag(await invoke("grove_diagnostics")); }
+  catch (err) { noteError("diagnostics", err); }
+}
+
+document.getElementById("diag-copy").addEventListener("click", () => {
+  const platform = [...document.querySelectorAll("#diag-platform .kv")]
+    .map((r) => "- " + r.children[0].textContent + ": " + r.children[1].textContent).join("\n");
+  const engine = [...document.querySelectorAll("#diag-engine .kv")]
+    .map((r) => "- " + r.children[0].textContent + ": " + r.children[1].textContent).join("\n");
+  const analytics = [...document.querySelectorAll("#diag-analytics .kv")]
+    .map((r) => "- " + r.children[0].textContent + ": " + r.children[1].textContent).join("\n");
+  const errors = errorRing.length
+    ? errorRing.map((e) => "- " + e.at + " [" + e.source + "] " + e.message).join("\n")
+    : "- none";
+  const report = "# Spruce Grove desktop — session report\n\n## Platform\n" + platform +
+    "\n\n## Engine\n" + engine + "\n\n## Analytics\n" + analytics +
+    "\n\n## Errors\n" + errors + "\n";
+  navigator.clipboard.writeText(report)
+    .then(() => els.status.textContent = "diagnostics report copied to clipboard")
+    .catch(() => els.status.textContent = "clipboard unavailable");
+});
+
+/* inspector tabs */
+document.querySelectorAll(".insp-tab").forEach((tab) => {
+  tab.addEventListener("click", () => {
+    document.querySelectorAll(".insp-tab").forEach((t) => t.classList.toggle("active", t === tab));
+    document.getElementById("insp-pane-repo").classList.toggle("hidden", tab.dataset.tab !== "repo");
+    document.getElementById("insp-pane-diag").classList.toggle("hidden", tab.dataset.tab !== "diag");
+    if (tab.dataset.tab === "diag") refreshDiag();
+  });
+});
+
+/* ============================ settings ============================= */
+/* ⌘, — persisted to the platform data dir, applied live. Personas bind
+   allowed working dirs + feature grants; repo access is GitHub's own
+   viewerPermission for the watched repos, not an invented role. */
+
+let settingsCache = null;
+let settingsVisible = false;
+let personaDraft = [];
+
+function activePersona() {
+  if (!settingsCache || !settingsCache.active_persona) return null;
+  return (settingsCache.personas || []).find((p) => p.name === settingsCache.active_persona) || null;
+}
+
+function personaAllows(grant) {
+  const p = activePersona();
+  if (!p) return true; // no active persona = the owner's machine, full trust
+  return !!(p.grants && p.grants[grant]);
+}
+
+function personaAllowsDir(cwd) {
+  const p = activePersona();
+  if (!p || !Array.isArray(p.dirs) || !p.dirs.length) return true;
+  return p.dirs.some((d) => {
+    const base = String(d).replace(/\/+$/, "");
+    return cwd === base || cwd.startsWith(base + "/");
+  });
+}
+
+async function loadSettings() {
+  try {
+    settingsCache = await invoke("grove_settings_get");
+  } catch (err) {
+    noteError("settings", err);
+    settingsCache = null;
+  }
+}
+
+async function saveSettings(next) {
+  const saved = await invoke("grove_settings_set", { settings: next });
+  settingsCache = saved;
+  return saved;
+}
+
+function renderPersonas() {
+  const box = document.getElementById("set-personas");
+  box.textContent = "";
+  if (!personaDraft.length) {
+    box.appendChild(el2("div", "insp-empty", "no personas — the owner has full trust"));
+  }
+  for (const p of personaDraft) {
+    const row = el2("div", "persona-row");
+    const head = el2("div", "persona-head");
+    const radio = el2("input");
+    radio.type = "radio";
+    radio.name = "active-persona";
+    radio.checked = settingsCache && settingsCache.active_persona === p.name;
+    radio.title = "make active";
+    radio.addEventListener("change", () => { personaDraft.forEach((x) => (x._active = false)); p._active = true; });
+    head.append(radio, el2("input", "persona-name", ""));
+    head.lastChild.value = p.name;
+    head.lastChild.addEventListener("input", (e) => { p.name = e.target.value; });
+    const del = el2("button", "icon-btn", "×");
+    del.title = "remove persona";
+    del.addEventListener("click", () => {
+      personaDraft = personaDraft.filter((x) => x !== p);
+      if (p._active) p._active = false;
+      renderPersonas();
+    });
+    head.append(el2("span", "insp-meta", p.permission || ""), del);
+    row.appendChild(head);
+    const grants = el2("div", "grants");
+    for (const g of ["prompts", "dictation", "lookin", "inspector"]) {
+      const label = el2("label");
+      const cb = el2("input");
+      cb.type = "checkbox";
+      cb.checked = !!(p.grants && p.grants[g]);
+      cb.addEventListener("change", () => {
+        p.grants = p.grants || {};
+        p.grants[g] = cb.checked;
+      });
+      label.append(cb, el2("span", null, g));
+      grants.appendChild(label);
+    }
+    row.appendChild(grants);
+    const dirs = el2("input", "persona-dirs", "");
+    dirs.placeholder = "allowed working dirs, comma-separated (empty = all)";
+    dirs.value = (p.dirs || []).join(", ");
+    dirs.addEventListener("input", () => {
+      p.dirs = dirs.value.split(",").map((s) => s.trim()).filter(Boolean);
+    });
+    row.appendChild(dirs);
+    box.appendChild(row);
+  }
+}
+
+function renderRepoAccess() {
+  const box = document.getElementById("set-repo-access");
+  box.textContent = "";
+  box.appendChild(el2("div", "insp-empty", "checking with gh…"));
+  const repos = settingsCache && settingsCache.watched_repos;
+  invoke("grove_repo_access", { repos })
+    .then((res) => {
+      box.textContent = "";
+      if (res.gh_ok && res.login) {
+        box.appendChild(kvRow("github account", res.login));
+      }
+      for (const r of res.repos || []) {
+        const row = el2("div", "kv");
+        row.append(
+          el2("span", "k", r.repo),
+          el2("span", "v", r.ok ? String(r.permission || "none") : "unavailable"),
+        );
+        box.appendChild(row);
+      }
+      if (!res.gh_ok) box.appendChild(el2("div", "insp-empty", res.note || "gh unavailable"));
+    })
+    .catch((err) => {
+      box.textContent = "";
+      box.appendChild(el2("div", "insp-empty", String(err).split("\n")[0]));
+    });
+}
+
+function collectSettings() {
+  const next = JSON.parse(JSON.stringify(settingsCache || {}));
+  next.version = 1;
+  next.default_cwd = document.getElementById("set-default-cwd").value.trim();
+  next.inspector_auto_open = document.getElementById("set-insp-auto").checked;
+  next.error_report_level = document.getElementById("set-err-level").value;
+  next.personas = personaDraft
+    .filter((p) => p.name && p.name.trim())
+    .map((p) => ({
+      name: p.name.trim(),
+      dirs: p.dirs || [],
+      grants: p.grants || {},
+    }));
+  const active = personaDraft.find((p) => p._active);
+  next.active_persona = active && active.name && active.name.trim() ? active.name.trim() : null;
+  return next;
+}
+
+function openSettings() {
+  settingsVisible = true;
+  document.getElementById("settings-overlay").classList.remove("hidden");
+  loadSettings().then(() => {
+    const s = settingsCache || {};
+    document.getElementById("set-default-cwd").value = s.default_cwd || "";
+    document.getElementById("set-insp-auto").checked = !!s.inspector_auto_open;
+    document.getElementById("set-err-level").value = s.error_report_level || "errors";
+    personaDraft = (s.personas || []).map((p) => ({ ...p, _active: s.active_persona === p.name }));
+    renderPersonas();
+    const about = document.getElementById("set-about");
+    about.textContent = "";
+    about.append(kvRow("app", "Spruce Grove desktop v0.1.0"));
+    invoke("grove_diagnostics").then((d) => {
+      about.textContent = "";
+      about.append(kvRow("os", d.os), kvRow("app", "v" + d.app_version), kvRow("data dir", d.data_dir));
+    }).catch(() => {});
+    renderRepoAccess();
+  });
+}
+
+function closeSettings() {
+  settingsVisible = false;
+  document.getElementById("settings-overlay").classList.add("hidden");
+}
+
+document.getElementById("settings-save").addEventListener("click", () => {
+  saveSettings(collectSettings())
+    .then(() => {
+      document.getElementById("settings-status").textContent = "saved";
+      els.status.textContent = "settings saved — applied";
+    })
+    .catch((err) => {
+      document.getElementById("settings-status").textContent = String(err).split("\n")[0];
+      noteError("settings", err);
+    });
+});
+document.getElementById("settings-close").addEventListener("click", closeSettings);
+document.getElementById("set-persona-add").addEventListener("click", () => {
+  personaDraft.push({ name: "persona " + (personaDraft.length + 1), dirs: [], grants: { prompts: true, dictation: true, lookin: true, inspector: true }, _active: false });
+  renderPersonas();
+});
+document.getElementById("set-access-refresh").addEventListener("click", renderRepoAccess);
+document.getElementById("settings-overlay").addEventListener("mousedown", (ev) => {
+  if (ev.target.id === "settings-overlay") closeSettings();
+});
+document.addEventListener("keydown", (ev) => {
+  if ((ev.metaKey || ev.ctrlKey) && ev.key === ",") {
+    ev.preventDefault();
+    settingsVisible ? closeSettings() : openSettings();
+  }
+  if (ev.key === "Escape" && settingsVisible) closeSettings();
 });
 
 /* ============================ ACP events ========================== */
@@ -587,6 +878,7 @@ async function handleAcpEvent(event) {
     case "error":
       if (data && data.message) {
         els.status.textContent = data.message;
+        noteError("acp", data.message);
         if (/agent process exited/.test(data.message)) selfHeal(acp.sessionId);
       }
       break;
@@ -637,6 +929,21 @@ const STALL_WARN_MS = 75000;
 const STALL_KILL_MS = 80000;
 let stallState = null; // null | "warned"
 
+/* diagnostics: an honest local record — errors ring + counters. Nothing
+   here leaves the machine (charter: zero telemetry); the report copies to
+   the clipboard only when the human asks. */
+const errorRing = [];
+const counters = { heals: 0, watchdog: 0, turnsDone: 0, turnsFailed: 0, tokens: 0 };
+function noteError(source, message) {
+  errorRing.unshift({
+    at: new Date().toTimeString().slice(0, 8),
+    source,
+    message: String(message).slice(0, 220),
+  });
+  if (errorRing.length > 40) errorRing.length = 40;
+  if (diagVisible) renderDiag();
+}
+
 /* Self-heal: the CLI also EXITS outright on provider hiccups (observed:
    ModelAPIError connection error kills it after a turn). The death arrives
    as an error event; revive the session quietly — resume carries the
@@ -645,6 +952,8 @@ let healing = false;
 function selfHeal(deadId) {
   if (healing || !deadId || !acp.ready) return;
   healing = true;
+  counters.heals++;
+  noteError("self-heal", "cli exited — reviving session " + deadId.slice(0, 12));
   const cwd = els.cwd.value.trim();
   els.status.textContent = "cli exited — reviving the session…";
   setTimeout(async () => {
@@ -676,6 +985,8 @@ setInterval(() => {
   // hard recovery
   const dead = acp.sessionId;
   stallState = null;
+  counters.watchdog++;
+  noteError("watchdog", "no stream activity for " + Math.round(STALL_KILL_MS / 1000) + "s — hard restart");
   addMessage("agent", "grove · stall watchdog").textContent =
     "The CLI stopped streaming for over a minute (observed wedge). " +
     "Restarting the session — your history is kept in the sidebar.";
@@ -707,6 +1018,18 @@ async function sendPrompt() {
   }
 
   if (!prompt || !cwd || state.busy) return;
+
+  // persona gates — the choke point for "who may ask what, where"
+  if (!personaAllows("prompts")) {
+    els.status.textContent = "persona \"" + (activePersona()?.name || "?") + "\" may not send prompts";
+    noteError("persona", "send blocked for " + (activePersona()?.name || "?"));
+    return;
+  }
+  if (!personaAllowsDir(cwd)) {
+    els.status.textContent = "persona \"" + (activePersona()?.name || "?") + "\" cannot work in " + cwd;
+    noteError("persona", "cwd blocked: " + cwd);
+    return;
+  }
 
   localStorage.setItem("grove.cwd", cwd);
   pushTurn(prompt);
@@ -853,6 +1176,11 @@ els.prompt.addEventListener("keydown", (event) => {
 els.cwd.addEventListener("change", () => {
   const cwd = els.cwd.value.trim();
   if (!cwd) return;
+  if (!personaAllowsDir(cwd)) {
+    els.status.textContent = "persona '" + (activePersona()?.name || "?") + "' does not cover " + cwd;
+    noteError("persona", "cwd switch blocked: " + cwd);
+    return;
+  }
   const last = sessionsForDir(cwd)[0];
   startAcp(cwd, last ? last.id : null, true);
 });
@@ -863,7 +1191,14 @@ els.cwdBrowse?.addEventListener("click", async () => {
   els.cwd.value = picked;
   els.cwd.dispatchEvent(new Event("change"));
 });
-els.lookin.addEventListener("click", () => els.lookinPanel.classList.toggle("hidden"));
+els.lookin.addEventListener("click", () => {
+  if (!personaAllows("lookin")) {
+    els.status.textContent = "persona '" + (activePersona()?.name || "?") + "' may not use look-in";
+    noteError("persona", "look-in blocked");
+    return;
+  }
+  els.lookinPanel.classList.toggle("hidden");
+});
 els.lookinClose.addEventListener("click", () => els.lookinPanel.classList.add("hidden"));
 els.sidebarToggle.addEventListener("click", () => {
   els.sidebar.classList.add("collapsed");
@@ -907,10 +1242,20 @@ function recChipHide() {
 
 async function toggleDictation() {
   if (dictation.recording) { dictation.recorder?.stop(); return; }
+  if (!personaAllows("dictation")) {
+    els.status.textContent = "persona \"" + (activePersona()?.name || "?") + "\" may not record";
+    return;
+  }
+  if (!personaAllows("dictation")) {
+    els.status.textContent = "persona '" + (activePersona()?.name || "?") + "' may not dictate";
+    noteError("persona", "dictation blocked");
+    return;
+  }
   try {
     dictation.stream = await navigator.mediaDevices.getUserMedia({ audio: true });
   } catch (err) {
     els.status.textContent = "mic unavailable: " + (err.name || err);
+    noteError("mic", (err && err.name) || err);
     return;
   }
   dictation.chunks = [];
@@ -950,6 +1295,7 @@ async function finishDictation() {
     els.prompt.focus();
   } catch (err) {
     els.status.textContent = "dictation failed: " + String(err).split("\n")[0];
+    noteError("dictation", err);
   } finally {
     els.mic.disabled = false;
     micLabel("record");
@@ -1038,16 +1384,23 @@ async function loadShellProfile(cwd) {
 async function initCwd() {
   const saved = localStorage.getItem("grove.cwd");
   if (saved) { els.cwd.value = saved; return; }
+  if (settingsCache && settingsCache.default_cwd) {
+    els.cwd.value = settingsCache.default_cwd;
+    return;
+  }
   try { els.cwd.value = await invoke("grove_default_cwd"); }
   catch { els.cwd.value = "/Users/tygranlund/SPRUCE-GROVE-OS"; }
 }
 
 loadSessions();
-if (localStorage.getItem("grove.inspector") === "1") {
-  // the drawer remembers being open — relaunches keep your rail
-  toggleInspector(true);
-}
-initCwd()
+loadSettings()
+  .then(() => {
+    // the drawer remembers being open (session memory), and settings can
+    // make it the default on every launch
+    if (settingsCache && settingsCache.inspector_auto_open) toggleInspector(true);
+    else if (localStorage.getItem("grove.inspector") === "1") toggleInspector(true);
+    return initCwd();
+  })
   .then(() => {
     const cwd = els.cwd.value.trim();
     const last = sessionsForDir(cwd)[0];

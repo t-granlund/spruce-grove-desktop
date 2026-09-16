@@ -89,31 +89,56 @@
         <aside id="inspector" class="inspector hidden" aria-label="Inspector: repository, GitHub, session">
           <div class="insp-head">
             <span class="insp-title">inspector</span>
+            <div class="insp-tabs">
+              <button class="insp-tab active" data-tab="repo">repo</button>
+              <button class="insp-tab" data-tab="diag">diagnostics</button>
+            </div>
             <button id="insp-refresh" class="icon-btn" title="refresh">&#8635;</button>
             <button id="insp-close" class="icon-btn" title="hide">&times;</button>
           </div>
           <div class="insp-body">
-            <section class="insp-sec">
-              <div class="side-label">repository</div>
-              <div id="insp-branch" class="insp-branch" title="current branch"></div>
-              <div id="insp-commits" class="insp-list"></div>
-            </section>
-            <section class="insp-sec">
-              <div class="side-label">working tree</div>
-              <div id="insp-dirty" class="insp-list"></div>
-            </section>
-            <section class="insp-sec">
-              <div class="side-label">github</div>
-              <div id="insp-gh-links" class="insp-links"></div>
-              <div class="side-label sub">pull requests</div>
-              <div id="insp-prs" class="insp-list"></div>
-              <div class="side-label sub">workflow runs</div>
-              <div id="insp-runs" class="insp-list"></div>
-            </section>
-            <section class="insp-sec">
-              <div class="side-label">this session</div>
-              <div id="insp-turns" class="insp-list"></div>
-            </section>
+            <div id="insp-pane-repo" class="insp-pane">
+              <section class="insp-sec">
+                <div class="side-label">repository</div>
+                <div id="insp-branch" class="insp-branch" title="current branch"></div>
+                <div id="insp-commits" class="insp-list"></div>
+              </section>
+              <section class="insp-sec">
+                <div class="side-label">working tree</div>
+                <div id="insp-dirty" class="insp-list"></div>
+              </section>
+              <section class="insp-sec">
+                <div class="side-label">github</div>
+                <div id="insp-gh-links" class="insp-links"></div>
+                <div class="side-label sub">pull requests</div>
+                <div id="insp-prs" class="insp-list"></div>
+                <div class="side-label sub">workflow runs</div>
+                <div id="insp-runs" class="insp-list"></div>
+              </section>
+              <section class="insp-sec">
+                <div class="side-label">this session</div>
+                <div id="insp-turns" class="insp-list"></div>
+              </section>
+            </div>
+            <div id="insp-pane-diag" class="insp-pane hidden">
+              <section class="insp-sec">
+                <div class="side-label">platform</div>
+                <div id="diag-platform" class="insp-kv"></div>
+              </section>
+              <section class="insp-sec">
+                <div class="side-label">engine seams</div>
+                <div id="diag-engine" class="insp-kv"></div>
+              </section>
+              <section class="insp-sec">
+                <div class="side-label">analytics</div>
+                <div id="diag-analytics" class="insp-kv"></div>
+              </section>
+              <section class="insp-sec">
+                <div class="side-label">errors (this session)</div>
+                <div id="diag-errors" class="insp-list"></div>
+                <button id="diag-copy" class="btn ghost" title="copy a markdown report to the clipboard">copy report</button>
+              </section>
+            </div>
           </div>
         </aside>
 
@@ -135,6 +160,43 @@
         </footer>
       </section>
     </main>
+    <div id="settings-overlay" class="picker-overlay hidden" role="dialog" aria-modal="true" aria-label="settings">
+      <div class="picker settings">
+        <div class="pk-head">
+          <span class="pk-title">settings</span>
+          <button class="pk-close" id="settings-close" title="close (esc)">&times;</button>
+        </div>
+        <div class="settings-body">
+          <section>
+            <div class="side-label">general</div>
+            <label class="set-row"><span>default working dir</span><input id="set-default-cwd" type="text" spellcheck="false" placeholder="(shell resolves it)"></label>
+            <label class="set-row check"><input id="set-insp-auto" type="checkbox"><span>open inspector on launch</span></label>
+            <label class="set-row"><span>error report level</span>
+              <select id="set-err-level">
+                <option value="errors">errors</option>
+                <option value="all">all events</option>
+              </select>
+            </label>
+          </section>
+          <section>
+            <div class="side-label">personas &amp; repo access</div>
+            <div id="set-personas" class="set-personas"></div>
+            <button id="set-persona-add" class="btn ghost">add persona</button>
+            <div class="side-label sub">live repo access &middot; gh viewerPermission</div>
+            <div id="set-repo-access" class="insp-list insp-kv"></div>
+            <button id="set-access-refresh" class="btn ghost">refresh access</button>
+          </section>
+          <section>
+            <div class="side-label">about</div>
+            <div id="set-about" class="insp-kv"></div>
+          </section>
+        </div>
+        <div class="pk-foot">
+          <span class="pk-status" id="settings-status"></span>
+          <button class="btn solid" id="settings-save">save</button>
+        </div>
+      </div>
+    </div>
     <script src="picker.js"></script>
     <script src="main.js"></script>
   </body>

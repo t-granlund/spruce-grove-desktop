@@ -472,7 +472,11 @@ fn main() {
             grove_boot_marker,
             inspector::grove_git_state,
             inspector::grove_open_path,
-            inspector::grove_open_url
+            inspector::grove_open_url,
+            inspector::grove_settings_get,
+            inspector::grove_settings_set,
+            inspector::grove_repo_access,
+            inspector::grove_diagnostics
         ])
         .run(tauri::generate_context!())
         .expect("error while running spruce-grove desktop");

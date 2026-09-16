@@ -96,6 +96,24 @@ window.__TAURI__ = {
         };
       }
       if (cmd === "grove_open_url" || cmd === "grove_open_path") return undefined;
+      if (cmd === "grove_diagnostics") {
+        return { app_version: "0.1.0", os: "macOS 27.0 (26A428)", arch: "arm64", pid: 4242,
+          tmpdir: "/tmp", data_dir: "/data", bridge_probe_acked: true,
+          boot_mainjs: true, boot_listen_ok: true };
+      }
+      if (cmd === "grove_settings_get") {
+        return window.__settings || { version: 1, default_cwd: "", inspector_auto_open: false,
+          error_report_level: "errors",
+          watched_repos: ["t-granlund/spruce-grove-os", "t-granlund/spruce-grove-desktop"],
+          personas: [{ name: "builder", dirs: [], grants: { prompts: true, dictation: true, lookin: true, inspector: true } }],
+          active_persona: "builder" };
+      }
+      if (cmd === "grove_settings_set") { window.__settings = args.settings; return args.settings; }
+      if (cmd === "grove_repo_access") {
+        return { gh_ok: true, login: "t-granlund", repos: [
+          { repo: "t-granlund/spruce-grove-os", ok: true, permission: "ADMIN" },
+          { repo: "t-granlund/spruce-grove-desktop", ok: true, permission: "MAINTAIN" } ] };
+      }
       return undefined;
     },
   },
@@ -322,6 +340,39 @@ def main() -> int:
                 timeout=4000,
             )
 
+            # -- 14. settings (Cmd+,) + diagnostics tab ---------------------
+            page.keyboard.press("Control+,")
+            page.wait_for_selector("#settings-overlay:not(.hidden)", timeout=4000)
+            page.wait_for_function(
+                "() => (document.getElementById('set-repo-access').textContent || '').includes('ADMIN')",
+                timeout=4000,
+            )
+            try:
+                if page.input_value(".persona-row .persona-name", timeout=4000) != "builder":
+                    failures.append("persona editor missing 'builder'")
+            except Exception:
+                failures.append("persona editor missing 'builder'")
+            page.click("#settings-save")
+            page.wait_for_function(
+                "() => window.__calls.some(c => c.cmd === 'grove_settings_set')",
+                timeout=4000,
+            )
+            page.keyboard.press("Escape")
+            page.wait_for_function(
+                "() => document.getElementById('settings-overlay').classList.contains('hidden')",
+                timeout=4000,
+            )
+
+            page.click("#inspector-toggle")
+            page.wait_for_selector("#inspector:not(.hidden)", timeout=4000)
+            page.click(".insp-tab[data-tab='diag']")
+            page.wait_for_function(
+                "() => (document.getElementById('diag-platform').textContent || '').includes('macOS 27.0')",
+                timeout=4000,
+            )
+            if "live (probe acked)" not in (page.text_content("#diag-engine") or ""):
+                failures.append("diagnostics missing bridge probe state")
+
             if errors:
                 failures.append(f"page errors: {errors}")
             browser.close()
@@ -332,7 +383,7 @@ def main() -> int:
         for f in failures:
             print(" -", f)
         return 1
-    print("PASS: streaming + dictation + steering + look-in + sidebar history + dir picker, all green")
+    print("PASS: streaming + dictation + steering + look-in + sidebar + picker + inspector + settings/diagnostics, all green")
     return 0
 
 

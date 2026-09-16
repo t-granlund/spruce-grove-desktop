@@ -30,6 +30,20 @@ CLI rather than re-implementing the harness, so the fork's diff does not grow.
 - [x] Directory picker for the working-dir field: an in-webview folder
   browser over `grove_list_dirs` — deliberately not a native dialog, so
   the Playwright harness can drive it like every other flow.
+- [x] **Inspector drawer** (⌘I): repository state (branch, commits, dirty
+  tree via live git), GitHub (PRs, workflow runs, deep links via `gh`),
+  session turns (state, duration, tokens), and a **diagnostics** tab
+  (platform, engine seams, analytics, session error ring + copy-report).
+- [x] **Settings** (⌘,): persisted to the platform data dir, applied live.
+- [x] **Personas with repo-level permissions**: personas bind allowed
+  working dirs + feature grants (prompts / dictation / look-in /
+  inspector), enforced at the action choke points. "Repo level access"
+  is GitHub's own `viewerPermission` for the watched repos
+  (`spruce-grove-os`, `spruce-grove-desktop`) via `gh` — no invented roles.
+- [x] **Cross-platform chassis**: open/gh/data-dir/login-shell decisions
+  live behind a platform module; CI runs `cargo test` on macOS, Windows
+  and Ubuntu. Packaged-app smoke on Win11/Linux happens on real machines
+  via CI artifacts — this desk is a Mac.
 
 ## CLI resolution order
 
