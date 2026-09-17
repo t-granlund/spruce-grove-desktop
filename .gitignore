@@ -3,3 +3,8 @@ __pycache__/
 node_modules/
 src-tauri/target/
 dist/
+
+# Beads / Dolt files (added by bd init)
+.dolt/
+*.db
+.beads-credential-key
