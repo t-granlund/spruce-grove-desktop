@@ -891,8 +891,11 @@ document.addEventListener("keydown", (ev) => {
   }
   if (ev.key === "Escape") {
     if (settingsVisible) { closeSettings(); return; }
-    // Escape belongs to the top-most layer only: settings, then picker, then drawer
-    const pickerOpen = !document.getElementById("dir-picker").classList.contains("hidden");
+    // Escape belongs to the top-most layer only: settings, then picker, then drawer.
+    // The picker overlay is lazily mounted by picker.js on first browse — until
+    // then getElementById returns null, which is definitionally "not open".
+    const pickerEl = document.getElementById("dir-picker");
+    const pickerOpen = !!pickerEl && !pickerEl.classList.contains("hidden");
     if (!pickerOpen && inspectorOpen) toggleInspector(false);
   }
 });

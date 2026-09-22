@@ -167,6 +167,17 @@ def main() -> int:
             if "cli: spruce-grove 1.0.0" not in (page.text_content("#cli-version") or ""):
                 failures.append("version pill did not populate")
 
+            # -- 1b. Escape closes the inspector before the picker is ever
+            # mounted (picker.js lazily builds #dir-picker on first browse;
+            # the Escape handler must null-guard it — TypeError regression)
+            page.click("#inspector-toggle")
+            page.wait_for_selector("#inspector:not(.hidden)", timeout=4000)
+            page.keyboard.press("Escape")
+            page.wait_for_function(
+                "() => document.getElementById('inspector').classList.contains('hidden')",
+                timeout=4000,
+            )
+
             # -- 2. ACP start + ready pill ---------------------------------
             page.wait_for_function(
                 "() => document.getElementById('mode').dataset.state === 'acp'",
