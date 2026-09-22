@@ -422,7 +422,10 @@ textarea:focus {
 
 /* the paths triptych holds four hints now — wrap with rhythm, clip nothing */
 .empty-paths { flex-wrap: wrap; gap: 14px 26px; max-width: 760px; }
-.empty { max-width: 720px; }
+/* min(): the auto-margin flex item must never exceed the transcript
+   column — at narrow widths the paths row otherwise drives the box past
+   the viewport edge (narrow-window sweep finding) */
+.empty { max-width: min(720px, 100%); }
 
 /* the canonical mark, sized to read: hairline strokes are the enemy */
 .side-mark { width: 54px; height: auto; display: block; flex: none; }

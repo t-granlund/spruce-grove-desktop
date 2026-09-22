@@ -20,6 +20,10 @@ CLI rather than re-implementing the harness, so the fork's diff does not grow.
 - [x] Conversation continuity via `--quick-resume` on turns 2+
 - [x] ANSI stripping, cancel button, single-active-run guard
 - [x] GRAN flush: official mark in the sidebar, grain veil, never-flat-black canvas, rune empty state, ember favicon (chrome only — the four contracts untouched)
+- [x] **Self-hosted webfonts** (`ui/fonts/`, vendored by `tools/vendor-fonts.py`):
+  Fraunces / Inter / JetBrains Mono / EB Garamond / IM Fell English SC load
+  from disk — the packaged CSP and offline launches can no longer degrade the
+  transcript's type mid-stream, and the handoff decks ship their own copies.
 - [x] Dictation-to-agent loop on-device: mic → MediaRecorder →
   `grove_save_recording` → `spruce-grove --transcribe` (local whisper rig) →
   editable prompt. Remaining acceptance: one human mic click in the real

@@ -118,8 +118,15 @@ function renderSidebar() {
   });
   els.sessionList.innerHTML = "";
   for (const s of sorted.slice(0, 14)) {
-    const item = document.createElement("button");
+    // role=button div, not <button>: the destructive × must be a real button
+    // nested inside, and a <button> may not contain another <button>.
+    const item = document.createElement("div");
     item.className = "sess-item" + (s.id === activeSessionId ? " active" : "");
+    item.setAttribute("role", "button");
+    item.tabIndex = 0;
+    const label = "resume session: " + (s.title || "session");
+    item.setAttribute("aria-label", label);
+    if (s.id === activeSessionId) item.setAttribute("aria-current", "true");
     const title = document.createElement("span");
     title.className = "s-title";
     title.textContent = s.title || "session";
@@ -137,6 +144,15 @@ function renderSidebar() {
     });
     item.append(title, meta, del);
     item.addEventListener("click", () => openSession(s));
+    // keyboard activation for the row button (Enter / Space), guarded so
+    // keypresses aimed at the nested delete button don't double-fire
+    item.addEventListener("keydown", (ev) => {
+      if (ev.target !== item) return;
+      if (ev.key === "Enter" || ev.key === " ") {
+        ev.preventDefault();
+        openSession(s);
+      }
+    });
     els.sessionList.appendChild(item);
   }
   if (!sorted.length) {
@@ -159,7 +175,7 @@ function renderSidebar() {
     item.addEventListener("click", () => {
       els.cwd.value = dir;
       const last = sessionsForDir(dir)[0];
-      startAcp(dir, last ? last.id : null, true);
+      startAcp(dir, last ? last.id : null);
     });
     els.dirList.appendChild(item);
   }
@@ -167,11 +183,15 @@ function renderSidebar() {
 
 /* ============================ ACP session ========================= */
 
-async function startAcp(cwd, resumeId, forceRestart) {
+async function startAcp(cwd, resumeId, { create = false } = {}) {
   els.mode.textContent = "connecting…";
   els.mode.dataset.state = "connecting";
   acp.ready = false;
   acp.turnActive = false;
+  // the highlight follows the session we are opening, not the one we left:
+  // clear it up front so a slow or failed start can't leave a stale ember row
+  activeSessionId = null;
+  renderSidebar();
   try {
     const res = await invoke("grove_acp_start", {
       cwd,
@@ -182,7 +202,6 @@ async function startAcp(cwd, resumeId, forceRestart) {
     acp.cwd = cwd;
     acp.ready = true;
     activeSessionId = res.sessionId;
-    if (!acp.firstPrompt) acp.firstPrompt = null;
     localStorage.setItem("grove.cwd", cwd);
     const prev = resumeId ? sessions.find((s) => s.id === resumeId) : null;
     if (prev && res.sessionId !== resumeId) {
@@ -190,8 +209,15 @@ async function startAcp(cwd, resumeId, forceRestart) {
       // drop the old row — restarts must not litter the sidebar
       upsertSession(res.sessionId, cwd, prev.title || null);
       dropSession(resumeId);
-    } else {
-      upsertSession(res.sessionId, cwd, res.resumed ? null : "new session");
+    } else if (create && !res.resumed) {
+      // only a deliberate "new chat" may stamp a placeholder row. Boot
+      // auto-start, dir switches and resumes touch no row: sessions are
+      // recorded when a prompt is actually sent (sendPrompt upserts with
+      // the real first prompt), never as launch residue.
+      upsertSession(res.sessionId, cwd, "new session");
+    } else if (res.resumed && !sessions.some((s) => s.id === res.sessionId)) {
+      // resumed a session the store lost (cleared localStorage): adopt it
+      upsertSession(res.sessionId, cwd, null);
     }
     els.mode.textContent = `ACP · ${res.model || "live"}${res.resumed ? " · resumed" : ""}`;
     els.mode.dataset.state = "acp";
@@ -206,6 +232,7 @@ async function startAcp(cwd, resumeId, forceRestart) {
     els.mode.textContent = "legacy line mode";
     els.mode.dataset.state = "legacy";
     els.status.textContent = `ACP unavailable (${String(err).slice(0, 80)}) — using line mode`;
+    renderSidebar();
   }
 }
 
@@ -239,6 +266,13 @@ function addMessage(kind, title) {
   els.transcript.appendChild(box);
   scrollDown(true);
   return pre;
+}
+
+/* Interruptions must outlive the 200ms status blip: steer and cancel get a
+   persistent transcript marker (the .msg.steer ember voice), so a steered
+   or canceled turn is readable in the record hours later, not just live. */
+function addInterruption(who, text) {
+  return addMessage("steer", who).textContent = text;
 }
 
 /* legacy line-mode buffering */
@@ -564,6 +598,7 @@ function toggleInspector(force) {
   inspectorOpen = opening;
   els.inspector.classList.toggle("hidden", !inspectorOpen);
   els.inspectorToggle.classList.toggle("active", inspectorOpen);
+  els.inspectorToggle.setAttribute("aria-pressed", String(inspectorOpen));
   localStorage.setItem("grove.inspector", inspectorOpen ? "1" : "");
   if (inspectorOpen) loadInspector();
 }
@@ -687,13 +722,28 @@ document.getElementById("diag-data-dir").addEventListener("click", () => {
     .catch((err) => { els.status.textContent = String(err).split("\n")[0]; noteError("diagnostics", err); });
 });
 
-/* inspector tabs */
+/* inspector tabs — role=tablist semantics, arrow keys walk the pair */
+function selectInspTab(tab) {
+  document.querySelectorAll(".insp-tab").forEach((t) => {
+    t.classList.toggle("active", t === tab);
+    t.setAttribute("aria-selected", String(t === tab));
+    t.tabIndex = t === tab ? 0 : -1;
+  });
+  document.getElementById("insp-pane-repo").classList.toggle("hidden", tab.dataset.tab !== "repo");
+  document.getElementById("insp-pane-diag").classList.toggle("hidden", tab.dataset.tab !== "diag");
+  if (tab.dataset.tab === "diag") refreshDiag();
+}
+
 document.querySelectorAll(".insp-tab").forEach((tab) => {
-  tab.addEventListener("click", () => {
-    document.querySelectorAll(".insp-tab").forEach((t) => t.classList.toggle("active", t === tab));
-    document.getElementById("insp-pane-repo").classList.toggle("hidden", tab.dataset.tab !== "repo");
-    document.getElementById("insp-pane-diag").classList.toggle("hidden", tab.dataset.tab !== "diag");
-    if (tab.dataset.tab === "diag") refreshDiag();
+  tab.addEventListener("click", () => selectInspTab(tab));
+  tab.addEventListener("keydown", (ev) => {
+    if (ev.key !== "ArrowLeft" && ev.key !== "ArrowRight") return;
+    ev.preventDefault();
+    const tabs = [...document.querySelectorAll(".insp-tab")];
+    const i = tabs.indexOf(tab);
+    const next = tabs[(i + (ev.key === "ArrowRight" ? 1 : tabs.length - 1)) % tabs.length];
+    next.focus();
+    selectInspTab(next);
   });
 });
 
@@ -784,6 +834,7 @@ function renderPersonas() {
     row.appendChild(grants);
     const dirs = el2("input", "persona-dirs", "");
     dirs.placeholder = "allowed working dirs, comma-separated (empty = all)";
+    dirs.setAttribute("aria-label", "allowed working directories for " + (p.name || "persona"));
     dirs.value = (p.dirs || []).join(", ");
     dirs.addEventListener("input", () => {
       p.dirs = dirs.value.split(",").map((s) => s.trim()).filter(Boolean);
@@ -838,9 +889,16 @@ function collectSettings() {
   return next;
 }
 
+let settingsInvoker = null;
+
 function openSettings() {
+  // dialog focus discipline: remember the invoker, move focus in, and
+  // restore it on close so keyboard/SR users are never stranded behind
+  // the overlay
+  settingsInvoker = document.activeElement;
   settingsVisible = true;
   document.getElementById("settings-overlay").classList.remove("hidden");
+  document.getElementById("set-default-cwd")?.focus();
   loadSettings().then(() => {
     const s = settingsCache || {};
     document.getElementById("set-default-cwd").value = s.default_cwd || "";
@@ -862,6 +920,8 @@ function openSettings() {
 function closeSettings() {
   settingsVisible = false;
   document.getElementById("settings-overlay").classList.add("hidden");
+  if (settingsInvoker && document.contains(settingsInvoker)) settingsInvoker.focus();
+  settingsInvoker = null;
 }
 
 document.getElementById("settings-save").addEventListener("click", () => {
@@ -1053,7 +1113,7 @@ setInterval(() => {
     invoke("grove_acp_kill").catch(() => {});
     acp.ready = false;
     const cwd = els.cwd.value.trim();
-    setTimeout(() => startAcp(cwd, dead, true), 400);
+    setTimeout(() => startAcp(cwd, dead), 400);
   }, 1200);
 }, 1000);
 
@@ -1067,6 +1127,7 @@ async function sendPrompt() {
   if (prompt && state.busy && acp.ready && acp.sessionId && acp.turnActive) {
     state.pendingSteer = prompt;
     els.prompt.value = "";
+    addInterruption("steer · queued", prompt);
     els.status.textContent = "steer queued — redirecting Cedar…";
     invoke("grove_acp_cancel", { sessionId: acp.sessionId }).catch(() => {});
     pendingSteerFallbackArm();
@@ -1142,8 +1203,14 @@ function pendingSteerFallbackArm() {
 
 async function cancelRun() {
   if (acp.ready && acp.sessionId) {
+    if (acp.turnActive) {
+      addInterruption("canceled", "turn canceled — the CLI was told to stop; history is kept.");
+    }
     invoke("grove_acp_cancel", { sessionId: acp.sessionId }).catch(() => {});
     return;
+  }
+  if (state.busy) {
+    addInterruption("canceled", "run canceled.");
   }
   invoke("grove_cancel").catch(() => {});
 }
@@ -1170,13 +1237,11 @@ async function openSession(s) {
   empty.innerHTML = '<p class="empty-title">Resuming session…</p><p>' +
     "Loading the conversation the agent kept across the restart.</p>";
   els.transcript.appendChild(empty);
-  activeSessionId = s.id;
-  await startAcp(s.cwd, s.id, true);
+  await startAcp(s.cwd, s.id);
 }
 
 async function newChat() {
   const cwd = els.cwd.value.trim();
-  activeSessionId = null;
   acp.firstPrompt = null;
   els.transcript.innerHTML = "";
   currentAgentPre = null; acpAgentPre = null; acpThoughtPre = null;
@@ -1185,7 +1250,8 @@ async function newChat() {
   empty.innerHTML = '<p class="empty-title">Fresh ground.</p><p>New session in ' +
     (baseName(cwd) || "the working directory") + ".</p>";
   els.transcript.appendChild(empty);
-  await startAcp(cwd, null, true);
+  // a deliberate new chat is the one flow that may stamp a placeholder row
+  await startAcp(cwd, null, { create: true });
 }
 
 /* ============================ event wiring ======================== */
@@ -1460,6 +1526,6 @@ loadSettings()
   .then(() => {
     const cwd = els.cwd.value.trim();
     const last = sessionsForDir(cwd)[0];
-    return startAcp(cwd, last ? last.id : null, false);
+    return startAcp(cwd, last ? last.id : null);
   })
   .then(() => refreshVersion());

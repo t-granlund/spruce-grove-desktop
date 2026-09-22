@@ -140,10 +140,14 @@ body {
   display: flex; justify-content: flex-end; align-items: center; gap: 14px;
   padding: 12px 18px; border-bottom: 1px solid var(--line);
   background: rgba(14, 19, 15, 0.7);
+  overflow-x: clip; /* narrow windows wrap below; never bleed over the sidebar */
 }
-.field { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-dim); }
+/* the cwd field must be allowed to shrink: a fixed input width is what
+   drove the topbar to overflow leftward over the sidebar at ~520px */
+.field { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--text-dim); flex: 0 1 auto; min-width: 0; }
 .field input {
-  width: min(380px, 42vw); background: var(--bg-card); border: 1px solid var(--line);
+  flex: 1 1 auto; width: auto; min-width: 4ch; max-width: 380px;
+  background: var(--bg-card); border: 1px solid var(--line);
   color: var(--text); border-radius: var(--radius-sm); padding: 6px 10px;
   font-family: var(--mono); font-size: 12px;
 }
@@ -243,7 +247,7 @@ textarea:focus { outline: none; border-color: var(--glow); }
 :focus-visible { outline: 2px solid var(--mint); outline-offset: 2px; }
 textarea:focus-visible { outline: none; border-color: var(--glow); }
 .transcript > .msg, .transcript > .waiting { width: min(100%, 860px); align-self: center; }
-.actions { display: flex; flex-direction: row; align-items: center; gap: 8px; }
+.actions { display: flex; flex-direction: row; align-items: center; gap: 8px; flex-wrap: wrap; }
 .actions .spacer { flex: 1; }
 
 /* one button system: compact, icon+label, three voices (solid/ghost/quiet) */
@@ -560,4 +564,25 @@ body::before {
 .empty-title {
   color: var(--text);
   text-shadow: 0 0 30px rgba(88, 143, 94, 0.18);
+}
+
+/* ==================================================================
+   Narrow windows — below the 720px Tauri min the topbar wraps onto
+   two rows (field gets its own), the sidebar slims down, and every
+   control stays pointer- and keyboard-reachable. Above 720px this
+   block does nothing.
+   ================================================================== */
+@media (max-width: 719px) {
+  :root { --sidebar-w: 210px; }
+  .topbar { flex-wrap: wrap; justify-content: flex-start; gap: 8px 10px; padding: 10px 12px; }
+  /* the cwd field drops to its own full-width row: it can never fight the
+     buttons for space, and nothing overflows toward the sidebar */
+  .field { flex: 1 1 100%; order: 10; }
+  .field input { max-width: none; }
+  .composer { padding: 10px 14px 14px; }
+  .transcript { padding: 16px 14px; }
+}
+@media (max-width: 559px) {
+  /* icons carry the buttons now; labels return above 560px */
+  .topbar .btn .lbl, .field .lbl { display: none; }
 }

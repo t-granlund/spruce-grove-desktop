@@ -25,6 +25,7 @@ REWRITES = {
     '<script src="boot-probe.js"></script>': '<script src="ui/boot-probe.js"></script>',
     '<script src="picker.js"></script>': '<script src="ui/picker.js"></script>',
     '<script src="main.js"></script>': '<script src="ui/main.js"></script>',
+    '<link rel="stylesheet" href="fonts.css" />': '<link rel="stylesheet" href="ui/fonts.css" />',
     '<link rel="stylesheet" href="styles.css" />': '<link rel="stylesheet" href="ui/styles.css" />',
     '<link rel="stylesheet" href="gran.css" />': '<link rel="stylesheet" href="ui/gran.css" />',
 }

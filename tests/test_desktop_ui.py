@@ -19,9 +19,21 @@ from playwright.sync_api import sync_playwright
 UI = Path(__file__).resolve().parent.parent / "ui"
 PORT = 8123
 
+# The packaged app runs under this CSP (tauri.conf.json). The harness serves
+# the same policy so UI tests fail where the real build would fail — that is
+# how the data:-image breakage class stays dead. One honest deviation:
+# script-src 'unsafe-inline', needed only by the injected MOCK bridge (the
+# real app has no inline scripts; Tauri injects its own with nonces).
+TEST_CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; "
+            "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
+            "font-src 'self' data:; connect-src ipc: http://ipc.localhost")
+
 MOCK = r"""
 window.__calls = [];
 window.__acpHandler = null;
+window.__turnCount = 0;
+window.__turnTimers = [];
+window.__canceledTurn = null;
 window.__TAURI__ = {
   core: {
     invoke: async (cmd, args) => {
@@ -46,6 +58,15 @@ window.__TAURI__ = {
       }
       if (cmd === "grove_acp_start") {
         if (!args.cwd) throw new Error("no cwd");
+        if (args.resume) {
+          // mirror the real backend: session/load replays stored history as
+          // ordinary session/update chunks before any new prompt arrives
+          const emit = window.__acpHandler || (() => {});
+          setTimeout(() => emit({ payload: { kind: "chunk", data: {
+            update: { sessionUpdate: "agent_message_chunk",
+                      content: { type: "text", text: "replay: earlier you asked about the grove." } } } } }), 40);
+          return { sessionId: "sess_mock", model: "syn:large:text", resumed: true };
+        }
         return { sessionId: "sess_mock", model: "syn:large:text" };
       }
       if (cmd === "grove_acp_prompt") {
@@ -54,17 +75,48 @@ window.__TAURI__ = {
         const upd = (sessionUpdate, extra) => ({
           update: { sessionUpdate, ...extra },
         });
-        setTimeout(() => emit(mk("chunk", upd("agent_message_chunk", { content: { type: "text", text: "ACP " } }))), 30);
-        setTimeout(() => emit(mk("thought", upd("agent_thought_chunk", { content: { type: "text", text: "pondering the grove" } }))), 60);
-        setTimeout(() => emit(mk("chunk", upd("agent_message_chunk", { content: { type: "text", text: "STREAMING." } }))), 90);
-        setTimeout(() => emit(mk("tool", upd("tool_call", { toolCallId: "t1", title: "read_file", kind: "read", status: "completed", rawInput: { path: "x" } }))), 120);
-        window.__turnCount = (window.__turnCount || 0) + 1;
-        const tok = window.__turnCount === 1 ? 4321 : 777;
-        if (window.__turnCount === 2) {
-          setTimeout(() => emit(mk("tool", upd("tool_call", { toolCallId: "shot1", title: "take_screenshot", kind: "other", status: "completed",
-            rawOutput: JSON.stringify({ success: true, screenshot_path: "/tmp/shots/scr_1.png" }) }))), 60);
+        window.__turnCount += 1;
+        const turn = window.__turnCount;
+        const tok = turn === 1 ? 4321 : 777;
+        // every stream event is a tracked timer: session/cancel must stop
+        // the fake stream dead (the real backend resolves the pending
+        // session/prompt with stopReason "cancelled" — an orderly turn-end)
+        const at = (ms, kind, data) => {
+          const t = setTimeout(() => {
+            if (window.__canceledTurn === turn) return;
+            emit(mk(kind, data));
+          }, ms);
+          window.__turnTimers.push(t);
+        };
+        at(30, "chunk", upd("agent_message_chunk", { content: { type: "text", text: "ACP " } }));
+        at(60, "thought", upd("agent_thought_chunk", { content: { type: "text", text: "pondering the grove" } }));
+        at(90, "chunk", upd("agent_message_chunk", { content: { type: "text", text: "STREAMING." } }));
+        at(120, "tool", upd("tool_call", { toolCallId: "t1", title: "read_file", kind: "read", status: "completed", rawInput: { path: "x" } }));
+        if (turn >= 2) {
+          // every turn from the second on carries a screenshot tool call —
+          // the steer/cancel turns must not depend on timing for the
+          // look-in panel to open
+          at(60, "tool", upd("tool_call", { toolCallId: "shot1", title: "take_screenshot", kind: "other", status: "completed",
+            rawOutput: JSON.stringify({ success: true, screenshot_path: "/tmp/shots/scr_1.png" }) }));
         }
-        setTimeout(() => emit(mk("turn-end", { ok: true, result: { stopReason: "end_turn", usage: { totalTokens: tok } } })), 200);
+        if (turn >= 3) {
+          // long-tail turns give the cancel test a real window: cancel must
+          // stop this stream dead, not merely outpace its 200ms end_turn
+          at(400, "chunk", upd("agent_message_chunk", { content: { type: "text", text: "TAIL-1 " } }));
+          at(800, "chunk", upd("agent_message_chunk", { content: { type: "text", text: "TAIL-2 " } }));
+          at(1500, "turn-end", { ok: true, result: { stopReason: "end_turn", usage: { totalTokens: tok } } });
+        } else {
+          at(200, "turn-end", { ok: true, result: { stopReason: "end_turn", usage: { totalTokens: tok } } });
+        }
+        return undefined;
+      }
+      if (cmd === "grove_acp_cancel") {
+        window.__canceledTurn = window.__turnCount;
+        for (const t of window.__turnTimers) clearTimeout(t);
+        window.__turnTimers = [];
+        const emit = window.__acpHandler || (() => {});
+        setTimeout(() => emit({ payload: { kind: "turn-end",
+          data: { ok: true, result: { stopReason: "cancelled" } } } }), 20);
         return undefined;
       }
       if (cmd === "grove_read_image_base64") {
@@ -136,6 +188,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def log_message(self, *a):  # quiet
         pass
+
+    def end_headers(self):
+        # every response rides the packaged app's CSP (TEST_CSP above), so
+        # the suite proves the UI under the real policy — data:-image media
+        # included — instead of passing against a policy the build forbids
+        self.send_header("Content-Security-Policy", TEST_CSP)
+        super().end_headers()
 
 
 def window_calls(page):
@@ -239,6 +298,49 @@ def main() -> int:
             if "STEER: change course." not in steer_prompt["args"]["text"]:
                 texts = [c["args"].get("text", "")[:60] for c in window_calls(page) if c["cmd"] == "grove_acp_prompt"]
                 failures.append(f"steer text missing; prompt texts seen: {texts}; last call: {steer_prompt}")
+            # the redirect must leave a persistent transcript marker, not a
+            # 200ms status blip: .msg.steer carrying the queued steer text
+            steer_marker = page.evaluate(
+                "() => [...document.querySelectorAll('.msg.steer')]"
+                ".map(m => m.textContent).join('\\n')"
+            )
+            if "steer · queued" not in steer_marker or "STEER: change course." not in steer_marker:
+                failures.append(f"persistent steer marker missing from transcript: {steer_marker!r}")
+
+            # -- 5b. cancel mid-turn: stops the stream + leaves a marker ---
+            page.fill("#prompt", "Cancel me mid-flight.")
+            page.click("#send")
+            page.wait_for_function(
+                "() => document.getElementById('status').textContent.includes('streaming')",
+                timeout=8000,
+            )
+            page.click("#cancel")
+            page.wait_for_function(
+                "() => document.getElementById('status').textContent.includes('cancelled')",
+                timeout=8000,
+            )
+            cancel_marker = page.evaluate(
+                "() => [...document.querySelectorAll('.msg.steer')]"
+                ".map(m => m.textContent).join('\\n')"
+            )
+            if "turn canceled" not in cancel_marker:
+                failures.append(f"persistent cancel marker missing: {cancel_marker!r}")
+            # the canceled turn's stream must actually stop: record the
+            # chunk count at cancel time, then prove it stops growing
+            chunks_at_cancel = page.evaluate("() => (document.getElementById('transcript').innerText.match(/STREAMING\\./g) || []).length")
+            page.wait_for_timeout(400)
+            chunks_after_cancel = page.evaluate("() => (document.getElementById('transcript').innerText.match(/STREAMING\\./g) || []).length")
+            if chunks_after_cancel > chunks_at_cancel:
+                failures.append(
+                    f"canceled stream kept streaming: {chunks_at_cancel} -> {chunks_after_cancel}"
+                )
+            # the shell must still be healthy: a fresh prompt works
+            page.fill("#prompt", "Post-cancel sanity.")
+            page.click("#send")
+            page.wait_for_function(
+                "() => document.getElementById('status').textContent.includes('done')",
+                timeout=8000,
+            )
 
             # -- 6. look-in: screenshot in tool payload -> panel + image ----
             page.wait_for_function(
@@ -289,6 +391,12 @@ def main() -> int:
             )
             if "Resuming" not in (page.text_content("#transcript") or ""):
                 failures.append("resume notice missing from transcript")
+            # session/load replays stored history: the mock mirrors the real
+            # backend and emits the prior conversation as ordinary chunks
+            page.wait_for_function(
+                "() => document.getElementById('transcript').innerText.includes('replay: earlier you asked about the grove.')",
+                timeout=8000,
+            )
 
             # -- 11. working-dir picker: browse -> descend -> choose -------
             page.click("#cwd-browse")
@@ -421,6 +529,110 @@ def main() -> int:
                 timeout=4000,
             )
 
+            # -- 15. accessibility pack: labels, live regions, tabs, focus --
+            a11y = page.evaluate("""() => {
+              const q = (s) => document.querySelector(s);
+              const label = (s) => (q(s) ? q(s).getAttribute('aria-label') : null);
+              return {
+                statusRole: q('#status').getAttribute('role'),
+                statusLive: q('#status').getAttribute('aria-live'),
+                transcriptRole: q('#transcript').getAttribute('role'),
+                transcriptLive: q('#transcript').getAttribute('aria-live'),
+                sidebarToggle: label('#sidebar-toggle'),
+                sidebarOpen: label('#sidebar-open'),
+                inspRefresh: label('#insp-refresh'),
+                inspClose: label('#insp-close'),
+                cancel: label('#cancel'),
+                prompt: label('#prompt'),
+                cwd: label('#cwd'),
+                tablist: !!q('.insp-tabs[role="tablist"]'),
+                tabs: [...document.querySelectorAll('.insp-tab')].map(t => t.getAttribute('role')),
+                selectedCount: [...document.querySelectorAll('.insp-tab')].filter(t => t.getAttribute('aria-selected') === 'true').length,
+                panes: [...document.querySelectorAll('.insp-pane')].map(p => p.getAttribute('role')),
+              };
+            }""")
+            for key, want in {
+                "statusRole": "status", "statusLive": "polite",
+                "transcriptRole": "log", "transcriptLive": "off",
+                "sidebarToggle": "collapse sidebar", "sidebarOpen": "show sidebar",
+                "inspRefresh": "refresh inspector", "inspClose": "hide inspector",
+                "cancel": "cancel the running turn", "prompt": "prompt for the grove",
+                "cwd": "working directory",
+            }.items():
+                if a11y.get(key) != want:
+                    failures.append(f"a11y {key}: expected {want!r}, got {a11y.get(key)!r}")
+            # the drawer remembers the last tab, so assert the structure:
+            # a tablist, two role=tab children, exactly one selected, panes
+            if (not a11y["tablist"] or a11y["tabs"] != ["tab", "tab"]
+                    or a11y["selectedCount"] != 1 or a11y["panes"] != ["tabpanel", "tabpanel"]):
+                failures.append(f"a11y inspector tablist broken: {a11y}")
+            # dialog focus management: focus moves into the dialog on open
+            # and returns to the invoker on close
+            page.focus("#new-chat")
+            page.keyboard.press("Control+,")
+            page.wait_for_selector("#settings-overlay:not(.hidden)", timeout=4000)
+            if page.evaluate("() => document.activeElement && document.activeElement.id") != "set-default-cwd":
+                failures.append("settings did not move focus into the dialog")
+            page.keyboard.press("Escape")
+            page.wait_for_function(
+                "() => document.getElementById('settings-overlay').classList.contains('hidden')",
+                timeout=4000,
+            )
+            if page.evaluate("() => document.activeElement && document.activeElement.id") != "new-chat":
+                failures.append("settings close did not restore focus to the invoker")
+            # arrow keys walk the inspector tabs; the session row is
+            # keyboard-operable without a pointer
+            page.click("#inspector-toggle")
+            page.wait_for_selector("#inspector:not(.hidden)", timeout=4000)
+            page.focus(".insp-tab[data-tab='repo']")
+            page.keyboard.press("ArrowRight")
+            page.wait_for_function(
+                "() => [...document.querySelectorAll('.insp-tab')]"
+                ".some(t => t.getAttribute('aria-selected') === 'true' && t.dataset.tab === 'diag')",
+                timeout=4000,
+            )
+            page.click("#insp-close")
+            starts_before_kb = len([c for c in window_calls(page) if c["cmd"] == "grove_acp_start"])
+            page.focus("#session-list .sess-item")
+            page.keyboard.press("Enter")
+            page.wait_for_function(
+                f"() => window.__calls.filter(c => c.cmd === 'grove_acp_start').length > {starts_before_kb}",
+                timeout=4000,
+            )
+
+            # -- 16. narrow window: nothing bleeds over the sidebar --------
+            page.set_viewport_size({"width": 500, "height": 700})
+            page.wait_for_timeout(200)
+            nav = page.evaluate("""() => {
+              const doc = document.documentElement;
+              const rect = (id) => document.getElementById(id).getBoundingClientRect();
+              const toggle = rect('sidebar-toggle');
+              const browse = rect('cwd-browse');
+              const send = rect('send');
+              const hits = (r, id) => {
+                const el = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2);
+                return !!el && (el.id === id || !!el.closest('#' + id));
+              };
+              return {
+                xScroll: doc.scrollWidth > doc.clientWidth,
+                fieldLeft: document.querySelector('.field').getBoundingClientRect().left,
+                toggleHit: hits(toggle, 'sidebar-toggle'),
+                browseHit: hits(browse, 'cwd-browse'),
+                sendVisible: send.right <= doc.clientWidth + 1 && send.width > 0,
+              };
+            }""")
+            if nav["xScroll"]:
+                failures.append("narrow window: page overflows horizontally")
+            if nav["fieldLeft"] < 0:
+                failures.append(f"narrow window: cwd field bleeds left of the viewport ({nav['fieldLeft']})")
+            if not nav["toggleHit"]:
+                failures.append("narrow window: sidebar-toggle click-intercepted")
+            if not nav["browseHit"]:
+                failures.append("narrow window: browse button unreachable")
+            if not nav["sendVisible"]:
+                failures.append("narrow window: send button clipped")
+            page.set_viewport_size({"width": 1100, "height": 760})
+
             if errors:
                 failures.append(f"page errors: {errors}")
             browser.close()
@@ -431,7 +643,7 @@ def main() -> int:
         for f in failures:
             print(" -", f)
         return 1
-    print("PASS: streaming + dictation + steering + look-in + sidebar + picker + inspector + settings/diagnostics, all green")
+    print("PASS: streaming + dictation + steering + cancel + look-in + sidebar + picker + inspector + settings/diagnostics + a11y + narrow-window, all green")
     return 0
 
 

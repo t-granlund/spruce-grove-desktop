@@ -18,6 +18,7 @@
   const picker = {
     overlay: null, pathEl: null, listEl: null, statusEl: null,
     useBtn: null, upBtn: null, current: null, resolve: null, open: false,
+    invoker: null,
   };
 
   function pickerDone(path) {
@@ -25,6 +26,10 @@
     picker.overlay?.classList.add("hidden");
     picker.resolve?.(path);
     picker.resolve = null;
+    // hand focus back to whoever opened the dialog — keyboard and screen
+    // reader users must not be stranded where the dialog left them
+    if (picker.invoker && document.contains(picker.invoker)) picker.invoker.focus();
+    picker.invoker = null;
   }
 
   /* Render one listing payload ({path, parent, dirs, total}). */
@@ -129,6 +134,7 @@
 
   window.grovePickDirectory = async function (startPath) {
     if (!picker.overlay) pickerBuild();
+    picker.invoker = document.activeElement;
     picker.open = true;
     picker.overlay.classList.remove("hidden");
     return new Promise((resolve) => {
