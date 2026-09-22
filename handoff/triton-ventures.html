@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spruce Grove — Triton Ventures · Emerging Tech Breakfast</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:ital@0;1&family=Fraunces:opsz,wght@9..144,400;9..144,560&family=IM+Fell+English+SC&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0E130F;--ink:#EAE4D3;--dim:#C9CFC2;--faint:#8A938A;--cedar:#E4AA71;--moss:#6FA97A;
+    --line:rgba(234,228,211,.14);--mono:"JetBrains Mono",monospace}
+  *{box-sizing:border-box;margin:0}
+  body{background:
+    radial-gradient(ellipse 1000px 460px at 50% -10%, rgba(88,143,94,.16), transparent 60%),
+    radial-gradient(ellipse 700px 400px at 90% 108%, rgba(228,170,113,.07), transparent 62%),var(--bg);
+    color:var(--ink);font-family:"EB Garamond",Georgia,serif;overflow:hidden;height:100vh}
+  #grain{position:fixed;inset:0;pointer-events:none;opacity:.05;mix-blend-mode:overlay;z-index:99;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>");
+    box-shadow:inset 0 0 200px rgba(0,0,0,.5)}
+  .era{position:fixed;top:16px;right:22px;font-family:var(--mono);font-size:11px;color:rgba(234,228,211,.4);letter-spacing:.14em;z-index:100}
+  .count{position:fixed;bottom:18px;right:22px;font-family:var(--mono);font-size:14px;letter-spacing:.18em;color:rgba(234,228,211,.55);z-index:100}
+  .slide{position:fixed;inset:0;display:none;align-items:center;justify-content:center;text-align:center;
+    padding:60px 80px;flex-direction:column}
+  .slide.on{display:flex}
+  .slide img.mark{width:110px;height:auto;filter:drop-shadow(0 10px 30px rgba(228,170,113,.25));margin-bottom:26px}
+  .kick{font-family:var(--mono);font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--cedar);margin-bottom:20px}
+  h1{font-family:Fraunces,Georgia,serif;font-weight:560;font-size:clamp(2.4rem,5.5vw,4.2rem);line-height:1.06;color:var(--ink);letter-spacing:-.01em}
+  h1 em{font-style:italic;color:var(--cedar)}
+  h2{font-family:Fraunces,Georgia,serif;font-weight:560;font-size:2.6rem;color:var(--ink);margin-bottom:8px}
+  .dek{font-size:1.2em;font-style:italic;color:var(--dim);max-width:36em;margin:18px auto 0}
+  .rune{width:130px;margin-top:30px;opacity:.6}
+  .cols{display:flex;gap:22px;margin-top:34px;max-width:980px;text-align:left;flex-wrap:wrap;justify-content:center}
+  .col{flex:1;min-width:230px;background:rgba(234,228,211,.04);border:1px solid var(--line);border-radius:10px;padding:20px 22px}
+  .col .k{font-family:var(--mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--cedar);margin-bottom:8px}
+  .col b{color:var(--ink);font-weight:600}
+  .col p{color:var(--dim);font-size:.94em;line-height:1.6;margin-top:4px}
+  .rules{max-width:860px;text-align:left;counter-reset:r;margin-top:26px}
+  .rule{display:flex;gap:16px;padding:12px 4px;border-bottom:1px solid rgba(234,228,211,.09)}
+  .rule:last-child{border-bottom:0}
+  .rule::before{counter-increment:r;content:counter(r,decimal-leading-zero);font-family:var(--mono);
+    font-size:12px;color:var(--cedar);padding-top:5px}
+  .rule b{color:var(--ink)} .rule span{display:block;color:var(--dim);font-size:.9em;margin-top:2px}
+  code{font-family:var(--mono);color:var(--moss);font-size:.9em}
+  .hint{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);font-family:var(--mono);
+    font-size:10px;letter-spacing:.2em;color:rgba(234,228,211,.35);text-transform:uppercase;z-index:100}
+  .stamp{display:inline-block;transform:rotate(-2.5deg);font-family:var(--mono);font-size:11px;
+    letter-spacing:.2em;text-transform:uppercase;color:var(--cedar);border:2px solid currentColor;
+    outline:1px solid rgba(228,170,113,.4);outline-offset:3px;padding:7px 12px;border-radius:2px;margin-bottom:26px}
+</style>
+</head>
+<body>
+<div id="grain" aria-hidden="true"></div>
+<div class="era">EST · MMXXVI</div>
+<div class="count" id="count">1 / 11</div>
+
+<section class="slide on">
+  <img class="mark" src="../ui/assets-mark.svg" onerror="this.style.display='none'">
+  <p class="kick">triton ventures · emerging tech breakfast</p>
+  <h1>Spruce Grove</h1>
+  <p class="dek">A local-first coding-agent workbench, built in the open.
+  Prepared for Bill, Zak, and their board guest — shown live in four minutes,
+  not told in twenty.</p>
+  <svg class="rune" viewBox="0 0 120 24"><g stroke="#E4AA71" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".55"><path d="M60 3 V21 M60 10 L45 4 M60 10 L75 4"/><path d="M10 12 H42 M78 12 H110" opacity=".45"/></g></svg>
+  <p class="hint" style="position:fixed">→ arrow keys to walk</p>
+</section>
+
+<section class="slide">
+  <p class="kick">I · the problem</p>
+  <h2>Agents got smart.<br>The desk around them didn't.</h2>
+  <p class="dek">Agent work happens in browser tabs — away from the repo, away from the record,
+  away from the machine that owns the work. The context lives in one window and the work in another,
+  and nothing about either is built to be watched, steered, or trusted.</p>
+</section>
+
+<section class="slide">
+  <p class="kick">II · what it is</p>
+  <h2>A thin shell around a proven engine</h2>
+  <div class="cols">
+    <div class="col"><div class="k">the engine</div><p>The <code>spruce-grove</code> CLI — a full agent
+    harness covered by <b>363 test files</b>, gated on every push. Tools, hooks, plugins, sessions.</p></div>
+    <div class="col"><div class="k">the shell</div><p>A Tauri 2 webview that owns <b>no agent logic</b>.
+    Every prompt spawns the CLI in your working directory and streams back as it lands.</p></div>
+    <div class="col"><div class="k">the bet</div><p>Engines improve weekly; a shell should not churn.
+    Keep the shell thin and the engine swappable — the architecture makes that a rule, not a hope.</p></div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kick">III · what it does</p>
+  <h2>Four surfaces, one working animal</h2>
+  <div class="cols">
+    <div class="col"><div class="k">speak or type</div><p>Live streaming sessions — the agent's thinking,
+    its tool calls with status chips, and per-turn token counts, all as they happen.</p></div>
+    <div class="col"><div class="k">dictate on-device</div><p>Mic → local Whisper → an editable prompt.
+    The audio never leaves the machine. Speak the task, review the words, then send.</p></div>
+    <div class="col"><div class="k">look in live</div><p>A browser panel shows screenshots and the action log
+    while the agent works. Seeing is the trust model.</p></div>
+    <div class="col"><div class="k">inspect everything</div><p>One keypress: branch, commits, dirty tree,
+    pull requests, CI runs — read live from <code>git</code> and <code>gh</code>, not from a cached dashboard.</p></div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kick">IV · why local</p>
+  <div class="stamp">zero telemetry · zero added network calls</div>
+  <h2>The work stays on your machine</h2>
+  <p class="dek">The shell adds no network calls of its own — the engine's own provider traffic is the only wire.
+  Personas bind the agent to allowed directories and feature grants, enforced at the action choke points.
+  Repo-level access is GitHub's own <code>viewerPermission</code> — no invented roles, no parallel permission system.</p>
+</section>
+
+<section class="slide">
+  <p class="kick">V · the proof</p>
+  <h2>Tested at the seams most projects forget</h2>
+  <div class="cols">
+    <div class="col"><div class="k">the contract</div><p>A recorded agent session is replayed through the real
+    protocol router on every test run. <b>Protocol drift fails loudly, first.</b></p></div>
+    <div class="col"><div class="k">the chassis</div><p>16 Rust unit tests cover the parser seams — streaming,
+    cancellation, session resume, inspector feeds, settings validation.</p></div>
+    <div class="col"><div class="k">the glass</div><p>A Chromium suite drives the real UI JavaScript against a
+    mocked bridge; CI builds the bundle on macOS, Windows, and Ubuntu.</p></div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kick">VI · the live demo</p>
+  <h2>Watch for four things</h2>
+  <div class="rules">
+    <div class="rule"><div><b>The empty state.</b><span>"The grove is listening." One plain sentence starts the work.</span></div></div>
+    <div class="rule"><div><b>The stream.</b><span>Thinking, tools, and tokens render as they land — nothing batched, nothing hidden.</span></div></div>
+    <div class="rule"><div><b>The steer.</b><span>Redirect the agent mid-run. It changes course without losing the session.</span></div></div>
+    <div class="rule"><div><b>The inspector.</b><span>⌘I opens the repository's own truth — branch, tree, PRs, CI — live.</span></div></div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kick">VII · quality, in the open</p>
+  <h2>Even the QA was a swarm</h2>
+  <p class="dek">Five AI agents tested this build end-to-end this week — cold start, the conversation loop,
+  every panel, accessibility and layout, and the deck you are watching. They found one real bug:
+  a crash on the Escape key, caught, fixed, and regression-tested the same day.
+  Every other finding is filed in a public tracker. <b style="color:var(--ink)">Nothing is hidden,
+  including the flaws.</b></p>
+</section>
+
+<section class="slide">
+  <p class="kick">VIII · where it goes</p>
+  <h2>Narrow and deep, not wide and shallow</h2>
+  <div class="cols">
+    <div class="col"><div class="k">the floor is poured</div><p>Cross-platform chassis compiles and tests on
+    macOS, Windows, and Linux in CI; packaged smoke rides the build artifacts.</p></div>
+    <div class="col"><div class="k">what's honest to say</div><p>Two smoke checks remain human by platform design —
+    a mic grant and a live-stream glance in the real packaged app. Known, tracked, small.</p></div>
+    <div class="col"><div class="k">what's next</div><p>Polish filed by the swarm — fonts vendored for offline
+    rooms, narrow-window layout, accessibility passes — then the first outside hands.</p></div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kick">IX · who built it</p>
+  <h2>Planted in the grove</h2>
+  <p class="dek">Built by Tyler Granlund — the desktop shell written thin on purpose, the engine groomed
+  in the open. The line is open source, grown from the Code Puppy project by Michael Pfaffenberger.
+  Local-first by conviction. Tested by habit. Shown as it runs, not as it slides.</p>
+</section>
+
+<section class="slide">
+  <img class="mark" src="../ui/assets-mark.svg" onerror="this.style.display='none'">
+  <p class="kick">the invitation</p>
+  <h1>Let's put it to work.</h1>
+  <p class="dek">Give it a real task in a real repository — today, in this room.
+  And if the shape of this resonates, the follow-up is a conversation, not a demo.</p>
+  <p class="dek" style="margin-top:26px;font-style:normal;color:var(--cedar);font-family:'IM Fell English SC',serif;font-size:1.3rem">
+  Together we are better. Always.</p>
+</section>
+
+<script>
+  var slides=document.querySelectorAll('.slide'),i=0;
+  var count=document.getElementById('count');
+  function go(n){slides[i].classList.remove('on');i=Math.max(0,Math.min(slides.length-1,n));slides[i].classList.add('on');
+    count.textContent=(i+1)+' / '+slides.length;}
+  document.addEventListener('keydown',function(e){
+    if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown')go(i+1);
+    if(e.key==='ArrowLeft'||e.key==='PageUp')go(i-1);
+    if(e.key==='Home')go(0); if(e.key==='End')go(slides.length-1);
+  });
+  document.addEventListener('click',function(e){ if(e.target.closest('a'))return; go(i+1); });
+</script>
+</body>
+</html>
