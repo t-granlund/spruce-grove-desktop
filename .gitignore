@@ -8,3 +8,6 @@ dist/
 .dolt/
 *.db
 .beads-credential-key
+
+# Session log dumps (the spruce-grove CLI writes these to cwd)
+LATESTLog*.txt
