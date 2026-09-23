@@ -9,7 +9,7 @@
 
 | Suite | Where | Scale | What it proves | How to run |
 |---|---|---|---|---|
-| Unit + plugin + tool tests | `SPRUCE-GROVE-OS/tests/` | **363 test files** | Every tool, hook, plugin tier, i18n catalog (CI-audited), session storage, model factory (incl. the `custom_openai` branch the Synthetic rig rides) | `uv run pytest tests/` in the fork |
+| Unit + plugin + tool tests | `dev/SPRUCE-GROVE-OS/tests/` (the CLI repo) | **363 test files** | Every tool, hook, plugin tier, i18n catalog (CI-audited), session storage, model factory (incl. the `custom_openai` branch the Synthetic rig rides) | `uv run pytest tests/` in the fork |
 | Live-model integration | `tests/integration/*_live.py` | a handful | Real completions through configured providers (needs keys) | same, keys required |
 | Publish gate | `.github/workflows/publish.yml` | CI | The whole suite + coverage on macOS before any release | push to `main` |
 | Voice loop | `~/.spruce_grove/plugins/mockingbird/` + build-log 27/29 | manual + pexpect | mic → whisper → review → send, validated end-to-end with real audio | `/rec` in a session |

@@ -29,6 +29,25 @@ struct ExitPayload {
     ok: bool,
 }
 
+/// Where the grove's own source checkout lives, most-canonical first.
+///
+/// `GROVE_REPO` lets a developer point the shell at a fork; otherwise the
+/// canonical clone location wins, with the historical `~/SPRUCE-GROVE-OS`
+/// kept as a last-resort fallback for machines that still have one.
+fn grove_repo_dirs() -> Vec<String> {
+    let mut dirs = Vec::new();
+    if let Ok(explicit) = std::env::var("GROVE_REPO") {
+        if !explicit.trim().is_empty() {
+            dirs.push(explicit);
+        }
+    }
+    if let Ok(home) = std::env::var("HOME") {
+        dirs.push(format!("{home}/dev/SPRUCE-GROVE-OS"));
+        dirs.push(format!("{home}/SPRUCE-GROVE-OS"));
+    }
+    dirs
+}
+
 /// Resolve how to launch the CLI. `GROVE_CLI` (space-separated prefix, e.g.
 /// `uv run --directory /path/to/repo spruce-grove`) wins; then a bare
 /// `spruce-grove` on PATH; finally the in-house fork checkout.
@@ -46,9 +65,12 @@ fn cli_command() -> (String, Vec<String>) {
         if std::path::Path::new(&uv_tool).exists() {
             return (uv_tool, Vec::new());
         }
-        let fork_venv = format!("{home}/SPRUCE-GROVE-OS/.venv/bin/spruce-grove");
-        if std::path::Path::new(&fork_venv).exists() {
-            return (fork_venv, Vec::new());
+        // Fall back to a source checkout only if it actually has a CLI.
+        for repo in grove_repo_dirs() {
+            let fork_venv = format!("{repo}/.venv/bin/spruce-grove");
+            if std::path::Path::new(&fork_venv).exists() {
+                return (fork_venv, Vec::new());
+            }
         }
     }
     ("spruce-grove".to_string(), Vec::new())
@@ -92,13 +114,12 @@ fn strip_ansi(input: &str) -> String {
 
 #[tauri::command]
 fn grove_default_cwd() -> String {
-    let home = std::env::var("HOME").unwrap_or_else(|_| ".".to_string());
-    let fork = format!("{home}/SPRUCE-GROVE-OS");
-    if std::path::Path::new(&fork).is_dir() {
-        fork
-    } else {
-        home
+    for repo in grove_repo_dirs() {
+        if std::path::Path::new(&repo).is_dir() {
+            return repo;
+        }
     }
+    std::env::var("HOME").unwrap_or_else(|_| ".".to_string())
 }
 
 /// Per-business shell profile: reads `<cwd>/.spruce_grove/shell.json` and

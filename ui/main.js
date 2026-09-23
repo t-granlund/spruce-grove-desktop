@@ -1510,8 +1510,11 @@ async function initCwd() {
     els.cwd.value = settingsCache.default_cwd;
     return;
   }
+  // Rust owns the repo-location policy (GROVE_REPO, then the canonical
+  // clone, then a historical one). Only if the command itself is missing
+  // do we fall back -- and never to a hardcoded personal path.
   try { els.cwd.value = await invoke("grove_default_cwd"); }
-  catch { els.cwd.value = "/Users/tygranlund/SPRUCE-GROVE-OS"; }
+  catch { els.cwd.value = ""; }
 }
 
 loadSessions();

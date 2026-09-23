@@ -2,7 +2,8 @@
 
 <p align="center"><img src="assets/spruce-grove-lockup-stacked.svg" alt="Spruce Grove — three spruces, one ground line; the center tree in gold" width="280"></p>
 
-Thin Tauri 2 shell around the groomed [`spruce-grove`](../SPRUCE-GROVE-OS) CLI
+Thin Tauri 2 shell around the groomed
+[`spruce-grove`](https://github.com/t-granlund/SPRUCE-GROVE-OS) CLI
 (bead SPRUCE-GROVE-OS-5al.6). The shell owns **no agent logic** — every prompt
 spawns the CLI in headless mode and streams its output back. Mockingbird is
 the reference shape (Tauri 2, local, zero telemetry); this repo consumes the
@@ -52,9 +53,15 @@ CLI rather than re-implementing the harness, so the fork's diff does not grow.
 ## CLI resolution order
 
 1. `GROVE_CLI` env var — space-separated prefix, e.g.
-   `GROVE_CLI="uv run --directory ~/src/fork spruce-grove" npm run dev`
-2. `~/SPRUCE-GROVE-OS/.venv/bin/spruce-grove` (in-house fork venv)
-3. bare `spruce-grove` on PATH
+   `GROVE_CLI="uv run --directory ~/dev/SPRUCE-GROVE-OS spruce-grove" npm run dev`
+2. `~/.local/bin/spruce-grove` (the released CLI, installed by `uv tool`)
+3. a source checkout's venv, searched in `GROVE_REPO` (if set), then
+   `~/dev/SPRUCE-GROVE-OS`, then `~/SPRUCE-GROVE-OS` (historical)
+4. bare `spruce-grove` on PATH
+
+Locations are resolved by `grove_repo_dirs()` in `src-tauri/src/main.rs` —
+one source of truth for both the CLI path and the default working directory.
+Set `GROVE_REPO` to point the shell at a fork.
 
 ## Dev
 
