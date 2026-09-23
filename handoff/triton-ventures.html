@@ -50,17 +50,33 @@
 <body>
 <div id="grain" aria-hidden="true"></div>
 <div class="era">EST · MMXXVI</div>
-<div class="count" id="count">1 / 15</div>
+<div class="count" id="count">1 / 19</div>
 
 <section class="slide on">
   <img class="mark" src="../ui/assets-mark.svg" onerror="this.style.display='none'">
   <p class="kick">triton ventures · emerging tech breakfast</p>
   <h1>Spruce Grove</h1>
   <p class="dek">A local-first coding-agent workbench, built in the open.
-  Prepared for Bill, Zak, and their board guest — shown live in four minutes,
+  Prepared for Bill, Zak, and Mike — shown live in four minutes,
   not told in twenty.</p>
   <svg class="rune" viewBox="0 0 120 24"><g stroke="#E4AA71" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".55"><path d="M60 3 V21 M60 10 L45 4 M60 10 L75 4"/><path d="M10 12 H42 M78 12 H110" opacity=".45"/></g></svg>
   <p class="hint" style="position:fixed">→ arrow keys to walk</p>
+</section>
+
+<section class="slide">
+  <p class="kick">overture · the room</p>
+  <h2>Three lenses, one habit:<br>start where you are</h2>
+  <div class="cols">
+    <div class="col"><div class="k">mike · r4 digital systems</div><p>Find the bottleneck first, then build the
+    simplest system around it. His framework in one breath — <b>reputation, readiness, re-engagement, reach.</b>
+    We build by his rule: <b>simplify the process before you automate it.</b></p></div>
+    <div class="col"><div class="k">zak · the breakfast</div><p>A weekly emerging-tech Sizzle and a room of
+    builders. You already publish the vocabulary — <b>harness engineering, loop engineering, sovereign AI.</b>
+    This deck speaks it back, and adds the one thing a newsletter cannot show: work you can run.</p></div>
+    <div class="col"><div class="k">bill · the board</div><p>The investor's question never changes —
+    <b>is it durable, and is the moat real?</b> Our answer: a thin swappable shell, a tested engine, and a
+    security floor that fails the build if it slips.</p></div>
+  </div>
 </section>
 
 <section class="slide">
@@ -109,7 +125,56 @@
 </section>
 
 <section class="slide">
-  <p class="kick">V · the proof</p>
+  <p class="kick">V · the field named it</p>
+  <h2>Harness engineering.<br>We build at that layer.</h2>
+  <p class="dek">Your own Issue #15 gave the discipline a name: <b>harness engineering</b> —
+  "the execution environment an agent runs inside: context, permissions, retries, state."
+  And its sibling, <b>loop engineering</b> — the layer above, where the model decides at runtime.</p>
+  <div class="cols">
+    <div class="col"><div class="k">the harness</div><p>Context, tool permissions, retries, logging,
+    state persistence across calls. A platform problem, owned by the team building the runtime.
+    <b>That is exactly what this chassis is.</b></p></div>
+    <div class="col"><div class="k">the loop</div><p>Steps chosen at runtime by the model, not fixed at
+    write time. A product and workflow problem, with its own owner.</p></div>
+    <div class="col"><div class="k">the hot toast</div><p>Your words: the organizations that treat harness
+    and loop as <b>separate disciplines with separate owners</b> build the durable systems. We kept them separate.</p></div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kick">VI · the comparable</p>
+  <h2>Hermes runs agents loose.<br>We hold the floor.</h2>
+  <p class="dek">Nous Research's Hermes is the right north star — MIT-licensed, persistent memory,
+  isolated subagents, five sandbox backends with container hardening. It answers "can an agent be
+  trusted to run unattended?" We answer the layer underneath it.</p>
+  <div class="cols">
+    <div class="col"><div class="k">what hermes does well</div><p>Isolated subagents, container hardening,
+    namespace isolation, sandbox backends from local to Modal. Real containment at the runtime edge.</p></div>
+    <div class="col"><div class="k">the layer below</div><p>Before a sandbox can trust the agent, the app
+    must trust itself. Packaged CSP and a least-privilege capability surface are where that starts.</p></div>
+    <div class="col"><div class="k">our difference</div><p>We ship the sandbox's floor <b>with regression
+    guards</b> — the build fails if the policy loosens. Receipts a demo cannot fake.</p></div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kick">VII · why now</p>
+  <h2>The Fourth Turning,<br>in one honest breath</h2>
+  <p class="dek">Mike named it, so let's name it straight. Howe and Strauss argue American history moves
+  in long cycles, and crisis eras reward the people who lay down durable infrastructure. Some historians
+  call the theory unfalsifiable — fair. We don't need the prophecy; we need the posture it names.</p>
+  <div class="cols">
+    <div class="col"><div class="k">the frame</div><p>Crisis eras are when the durable things get built —
+    the institutions, the tooling, the habits that outlast the panic. Not a forecast; a stance.</p></div>
+    <div class="col"><div class="k">the posture</div><p>Build the floor first. Test it. Keep the receipts
+    public. Tend it so it holds under pressure — machine and community alike.</p></div>
+    <div class="col"><div class="k">the lineage</div><p>1727 Junto to a 2026 breakfast club — the same move:
+    practical people, gathered, building something meant to outlast them.</p></div>
+  </div>
+</section>
+
+<section class="slide">
+  <p class="kick">VIII · the proof</p>
   <h2>Tested at the seams most projects forget</h2>
   <div class="cols">
     <div class="col"><div class="k">the contract</div><p>A recorded agent session is replayed through the real
@@ -118,11 +183,14 @@
     cancellation, session resume, inspector feeds, settings validation.</p></div>
     <div class="col"><div class="k">the glass</div><p>A Chromium suite drives the real UI JavaScript against a
     mocked bridge; CI builds the bundle on macOS, Windows, and Ubuntu.</p></div>
+    <div class="col"><div class="k">the floor</div><p>Packaged CSP pinned to <code>object-src/base-uri/
+    form-action/frame-ancestors 'none'</code>, and a least-privilege capability surface locked to one window.
+    <b>Both are enforced by guards that fail the suite on drift</b> — negative-tested, not assumed.</p></div>
   </div>
 </section>
 
 <section class="slide">
-  <p class="kick">VI · the live demo</p>
+  <p class="kick">IX · the live demo</p>
   <h2>Watch for four things</h2>
   <div class="rules">
     <div class="rule"><div><b>The empty state.</b><span>"The grove is listening." One plain sentence starts the work.</span></div></div>
@@ -133,7 +201,7 @@
 </section>
 
 <section class="slide">
-  <p class="kick">VII · quality, in the open</p>
+  <p class="kick">X · quality, in the open</p>
   <h2>Even the QA was a swarm</h2>
   <p class="dek">Five AI agents tested this build end-to-end this week — cold start, the conversation loop,
   every panel, accessibility and layout, and the deck you are watching. They found one real bug:
@@ -143,7 +211,7 @@
 </section>
 
 <section class="slide">
-  <p class="kick">VIII · the mission</p>
+  <p class="kick">XI · the mission</p>
   <div class="stamp">together we are better · always</div>
   <h2>The old mission, carried by a new tool</h2>
   <p class="dek">Help people solve problems. Remove the technology obstacles in their way.
@@ -155,7 +223,7 @@
 </section>
 
 <section class="slide">
-  <p class="kick">IX · the work</p>
+  <p class="kick">XII · the work</p>
   <h2>Real businesses. Real tasks. Real receipts.</h2>
   <div class="cols">
     <div class="col"><div class="k">where it goes to work</div><p>Into small businesses and the people
@@ -167,11 +235,14 @@
     <div class="col"><div class="k">the shape of the work</div><p>Bring one task you would love to never
     do again. Speak it out loud. The council hears it, the machine builds it, you leave with the
     work done — and the trick of it learned.</p></div>
+    <div class="col"><div class="k">four words for the habit</div><p>Mike's R4 — reputation, readiness,
+    re-engagement, reach — is the business language for it: find the drag, simplify the process, then
+    let the right work happen on time without anyone having to remember it.</p></div>
   </div>
 </section>
 
 <section class="slide">
-  <p class="kick">X · why it works</p>
+  <p class="kick">XIII · why it works</p>
   <h2>The mechanics, plainly</h2>
   <div class="rules">
     <div class="rule"><div><b>Thin shell, strong engine.</b><span>The desktop owns no agent logic; the tested engine is swappable by design.</span></div></div>
@@ -183,7 +254,7 @@
 </section>
 
 <section class="slide">
-  <p class="kick">XI · the pledge</p>
+  <p class="kick">XIV · the pledge</p>
   <div class="stamp">the machine stays free · the value flows to the misfits</div>
   <h2>Where every dollar goes</h2>
   <p class="dek">Any profit the grove's work ever makes is ledgered in public and donated to the
@@ -205,11 +276,12 @@
 </section>
 
 <section class="slide">
-  <p class="kick">XII · the root</p>
+  <p class="kick">XV · the root</p>
   <h2>The Leather Apron Club, 1727</h2>
   <p class="dek">Benjamin Franklin's Junto — the Leather Apron Club — was a mutual-improvement
   circle that turned curiosity into civic infrastructure. Its operating rules are this grove's
-  constitution:</p>
+  constitution. Triton already runs that instinct — a non-profit arm publishing a community
+  resource every week. The Junto is the same move, three hundred years early.</p>
   <div class="rules">
     <div class="rule"><div><b>Love truth for truth's sake.</b><span>Zero invented facts. Verify, or say plainly: not verified.</span></div></div>
     <div class="rule"><div><b>Mutual aid.</b><span>"How can the Junto assist you in any of your honorable designs?" — every session starts from your goal, not the tool's features.</span></div></div>
@@ -219,7 +291,7 @@
 </section>
 
 <section class="slide">
-  <p class="kick">XIII · the council</p>
+  <p class="kick">XVI · the council</p>
   <h2>The founding council</h2>
   <p class="dek">The establishment meets Friday, September 18 — invitations go out that night.
   The first council convenes <b style="color:var(--ink)">Friday, September 25, 2026, at six —
