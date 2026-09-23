@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Spruce Grove — Triton Ventures · Emerging Tech Breakfast</title>
+<title>Spruce Grove - Triton Ventures - Emerging Tech Breakfast</title>
 <link rel="stylesheet" href="fonts.css">
 <style>
   :root{--bg:#0E130F;--ink:#EAE4D3;--dim:#C9CFC2;--faint:#8A938A;--cedar:#E4AA71;--moss:#6FA97A;
@@ -19,315 +19,254 @@
   .era{position:fixed;top:16px;right:22px;font-family:var(--mono);font-size:11px;color:rgba(234,228,211,.4);letter-spacing:.14em;z-index:100}
   .count{position:fixed;bottom:18px;right:22px;font-family:var(--mono);font-size:14px;letter-spacing:.18em;color:rgba(234,228,211,.55);z-index:100}
   .slide{position:fixed;inset:0;display:none;align-items:center;justify-content:center;text-align:center;
-    padding:60px 80px;flex-direction:column}
+    padding:56px 72px;flex-direction:column}
   .slide.on{display:flex}
-  .slide img.mark{width:110px;height:auto;filter:drop-shadow(0 10px 30px rgba(228,170,113,.25));margin-bottom:26px}
-  .kick{font-family:var(--mono);font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--cedar);margin-bottom:20px}
+  .slide.demo{justify-content:flex-start;padding-top:44px}
+  .slide img.mark{width:110px;height:auto;filter:drop-shadow(0 10px 30px rgba(228,170,113,.25));margin-bottom:24px}
+  .kick{font-family:var(--mono);font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--cedar);margin-bottom:18px}
   h1{font-family:Fraunces,Georgia,serif;font-weight:560;font-size:clamp(2.4rem,5.5vw,4.2rem);line-height:1.06;color:var(--ink);letter-spacing:-.01em}
   h1 em{font-style:italic;color:var(--cedar)}
-  h2{font-family:Fraunces,Georgia,serif;font-weight:560;font-size:2.6rem;color:var(--ink);margin-bottom:8px}
-  .dek{font-size:1.2em;font-style:italic;color:var(--dim);max-width:36em;margin:18px auto 0}
-  .rune{width:130px;margin-top:30px;opacity:.6}
-  .cols{display:flex;gap:22px;margin-top:34px;max-width:980px;text-align:left;flex-wrap:wrap;justify-content:center}
-  .col{flex:1;min-width:230px;background:rgba(234,228,211,.04);border:1px solid var(--line);border-radius:10px;padding:20px 22px}
+  h2{font-family:Fraunces,Georgia,serif;font-weight:560;font-size:clamp(1.9rem,3.6vw,2.7rem);color:var(--ink);margin-bottom:6px}
+  .dek{font-size:1.18em;font-style:italic;color:var(--dim);max-width:38em;margin:16px auto 0}
+  .rune{width:130px;margin-top:28px;opacity:.6}
+  .cols{display:flex;gap:20px;margin-top:30px;max-width:1000px;text-align:left;flex-wrap:wrap;justify-content:center}
+  .col{flex:1;min-width:220px;background:rgba(234,228,211,.04);border:1px solid var(--line);border-radius:10px;padding:18px 20px}
   .col .k{font-family:var(--mono);font-size:10px;letter-spacing:.22em;text-transform:uppercase;color:var(--cedar);margin-bottom:8px}
   .col b{color:var(--ink);font-weight:600}
-  .col p{color:var(--dim);font-size:.94em;line-height:1.6;margin-top:4px}
-  .rules{max-width:860px;text-align:left;counter-reset:r;margin-top:26px}
-  .rule{display:flex;gap:16px;padding:12px 4px;border-bottom:1px solid rgba(234,228,211,.09)}
-  .rule:last-child{border-bottom:0}
-  .rule::before{counter-increment:r;content:counter(r,decimal-leading-zero);font-family:var(--mono);
-    font-size:12px;color:var(--cedar);padding-top:5px}
-  .rule b{color:var(--ink)} .rule span{display:block;color:var(--dim);font-size:.9em;margin-top:2px}
+  .col p{color:var(--dim);font-size:.92em;line-height:1.55;margin-top:4px}
   code{font-family:var(--mono);color:var(--moss);font-size:.9em}
   .hint{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);font-family:var(--mono);
     font-size:10px;letter-spacing:.2em;color:rgba(234,228,211,.35);text-transform:uppercase;z-index:100}
-  .stamp{display:inline-block;transform:rotate(-2.5deg);font-family:var(--mono);font-size:11px;
-    letter-spacing:.2em;text-transform:uppercase;color:var(--cedar);border:2px solid currentColor;
-    outline:1px solid rgba(228,170,113,.4);outline-offset:3px;padding:7px 12px;border-radius:2px;margin-bottom:26px}
+  .stamp{display:inline-block;transform:rotate(-2.2deg);font-family:var(--mono);font-size:11px;
+    letter-spacing:.18em;text-transform:uppercase;color:var(--cedar);border:2px solid currentColor;
+    outline:1px solid rgba(228,170,113,.4);outline-offset:3px;padding:7px 12px;border-radius:2px;margin-top:26px}
+  .cmp{width:min(1060px,94vw);border-collapse:collapse;margin-top:24px;font-size:.82em;text-align:left}
+  .cmp th,.cmp td{text-align:left;padding:8px 14px;border-bottom:1px solid var(--line);vertical-align:top}
+  .cmp th{font-family:var(--mono);font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--cedar)}
+  .cmp td{color:var(--dim);line-height:1.4}
+  .cmp td:first-child{color:var(--ink);font-weight:600;white-space:nowrap}
+  .cmp tr.us td{background:rgba(111,169,122,.10)}
+  .cmp tr.us td:first-child{color:var(--moss)}
+  #demo-layer{position:fixed;left:50%;top:40vh;transform:translateX(-50%);width:min(1080px,92vw);
+    display:none;flex-direction:column;align-items:center;z-index:60}
+  #demo-layer.on{display:flex}
+  .stage{width:100%;height:min(520px,52vh);border:1px solid var(--line);
+    border-radius:12px;overflow:hidden;background:#0b0f0c;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+  .stage iframe{width:100%;height:100%;border:0;display:block;background:#0b0f0c}
+  .stage:empty::after{content:'loading the live app...';display:flex;align-items:center;justify-content:center;
+    height:100%;font-family:var(--mono);font-size:12px;letter-spacing:.2em;color:var(--faint);text-transform:uppercase}
+  .cap{display:flex;align-items:center;gap:16px;justify-content:center;margin-top:14px}
+  .demo-exit{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;
+    color:var(--ink);background:rgba(234,228,211,.06);border:1px solid var(--line);border-radius:20px;
+    padding:8px 15px;cursor:pointer}
+  .demo-exit:hover{background:rgba(228,170,113,.16);color:var(--cedar)}
+  .demo-hint{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--faint);text-transform:uppercase}
 </style>
 </head>
 <body>
 <div id="grain" aria-hidden="true"></div>
-<div class="era">EST · MMXXVI</div>
-<div class="count" id="count">1 / 19</div>
+<div class="era">EST - MMXXVI</div>
+<div class="count" id="count">1 / 12</div>
 
 <section class="slide on">
   <img class="mark" src="../ui/assets-mark.svg" onerror="this.style.display='none'">
-  <p class="kick">triton ventures · emerging tech breakfast</p>
+  <p class="kick">triton ventures - emerging tech breakfast</p>
   <h1>Spruce Grove</h1>
-  <p class="dek">A local-first coding-agent workbench, built in the open.
-  Prepared for Bill, Zak, and Mike — shown live in four minutes,
-  not told in twenty.</p>
+  <p class="dek">A local-first desktop workbench for coding agents. It runs on your machine,
+  shows its work while it runs, and keeps the receipts. Prepared for Bill, Zak, and Mike.</p>
   <svg class="rune" viewBox="0 0 120 24"><g stroke="#E4AA71" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".55"><path d="M60 3 V21 M60 10 L45 4 M60 10 L75 4"/><path d="M10 12 H42 M78 12 H110" opacity=".45"/></g></svg>
-  <p class="hint" style="position:fixed">→ arrow keys to walk</p>
+  <p class="hint" style="position:fixed">arrow keys to walk - click a live demo to play</p>
 </section>
 
 <section class="slide">
-  <p class="kick">overture · the room</p>
-  <h2>Three lenses, one habit:<br>start where you are</h2>
+  <p class="kick">why now - the room</p>
+  <h2>Start where the room already stands</h2>
   <div class="cols">
-    <div class="col"><div class="k">mike · r4 digital systems</div><p>Find the bottleneck first, then build the
-    simplest system around it. His framework in one breath — <b>reputation, readiness, re-engagement, reach.</b>
-    We build by his rule: <b>simplify the process before you automate it.</b></p></div>
-    <div class="col"><div class="k">zak · the breakfast</div><p>A weekly emerging-tech Sizzle and a room of
-    builders. You already publish the vocabulary — <b>harness engineering, loop engineering, sovereign AI.</b>
-    This deck speaks it back, and adds the one thing a newsletter cannot show: work you can run.</p></div>
-    <div class="col"><div class="k">bill · the board</div><p>The investor's question never changes —
-    <b>is it durable, and is the moat real?</b> Our answer: a thin swappable shell, a tested engine, and a
-    security floor that fails the build if it slips.</p></div>
+    <div class="col"><div class="k">mike - r4 digital systems</div><p>Find the bottleneck, then build the
+    simplest system around it. Reputation, readiness, re-engagement, reach. We build by his rule:
+    <b>simplify the process before you automate it.</b></p></div>
+    <div class="col"><div class="k">zak - the breakfast</div><p>You already publish the vocabulary -
+    <b>harness engineering, loop engineering, sovereign AI.</b> This is the harness itself, working, in the room.</p></div>
+    <div class="col"><div class="k">bill - the board</div><p>The investor's question never changes:
+    <b>is it durable, and is the moat real?</b> Thin swappable shell, tested engine, and a security floor
+    that fails the build if it slips.</p></div>
   </div>
 </section>
 
 <section class="slide">
-  <p class="kick">I · the problem</p>
-  <h2>Agents got smart.<br>The desk around them didn't.</h2>
-  <p class="dek">Agent work happens in browser tabs — away from the repo, away from the record,
-  away from the machine that owns the work. The context lives in one window and the work in another,
-  and nothing about either is built to be watched, steered, or trusted.</p>
-</section>
-
-<section class="slide">
-  <p class="kick">II · what it is</p>
+  <p class="kick">what it is</p>
   <h2>A thin shell around a proven engine</h2>
+  <p class="dek">Spruce Grove is a desktop app that owns no agent logic. Every prompt spawns the
+  <b>spruce-grove</b> CLI in your own working directory and streams the agent's work back as it happens -
+  thinking, tools, and tokens, all live.</p>
   <div class="cols">
-    <div class="col"><div class="k">the engine</div><p>The <code>spruce-grove</code> CLI — a full agent
-    harness covered by <b>363 test files</b>, gated on every push. Tools, hooks, plugins, sessions.</p></div>
-    <div class="col"><div class="k">the shell</div><p>A Tauri 2 webview that owns <b>no agent logic</b>.
-    Every prompt spawns the CLI in your working directory and streams back as it lands.</p></div>
-    <div class="col"><div class="k">the bet</div><p>Engines improve weekly; a shell should not churn.
-    Keep the shell thin and the engine swappable — the architecture makes that a rule, not a hope.</p></div>
+    <div class="col"><div class="k">the engine</div><p>A full agent harness, covered by
+    <b>363 test files</b>, gated on every push. Tools, hooks, plugins, sessions.</p></div>
+    <div class="col"><div class="k">the shell</div><p>A Tauri 2 webview that owns <b>zero agent logic</b> -
+    so the engine can improve weekly without the shell churning.</p></div>
+    <div class="col"><div class="k">the consequence</div><p>Not another model. Not another editor.
+    <b>A harness you can watch, steer, and trust.</b></p></div>
   </div>
 </section>
 
 <section class="slide">
-  <p class="kick">III · what it does</p>
+  <p class="kick">why it is different</p>
+  <h2>Everyone else sells a model.<br>We ship the harness.</h2>
+  <table class="cmp">
+    <tr><th>tool</th><th>what it is</th><th>where we part ways</th></tr>
+    <tr><td>Cursor</td><td>AI-first code editor; repo-routed model calls</td><td>Editor-bound. The agent lives in its window, not your machine's shell.</td></tr>
+    <tr><td>Claude Code</td><td>Strong terminal agent; Anthropic's own harness</td><td>Powerful but closed - you don't own the runtime or its guardrails.</td></tr>
+    <tr><td>Cline</td><td>Open-source VS Code agent extension</td><td>Editor-bound again; trust is approvals in a sidebar.</td></tr>
+    <tr><td>Windsurf</td><td>Agentic IDE with Cascade flows</td><td>IDE lock-in; the harness is not separable from the surface.</td></tr>
+    <tr><td>Hermes (Nous)</td><td>Open agent: memory, subagents, five sandbox backends</td><td>Deep containment at the edge - but the app-trust floor underneath is still yours to build.</td></tr>
+    <tr class="us"><td>Spruce Grove</td><td>Local-first desktop harness over a tested CLI</td><td>Thin shell, swappable engine, live visibility, and a security floor enforced by tests.</td></tr>
+  </table>
+  <div class="stamp">the wedge - a swappable engine with a watched, tested floor</div>
+</section>
+
+<section class="slide demo" data-demo>
+  <p class="kick">live - the shell</p>
+  <h2>Watch it work</h2>
+  <p class="dek" style="max-width:44em;font-size:1.02em">The real app, running on a canned bridge.
+  Type anything and send - thinking, tool calls, and token counts stream live.</p>
+</section>
+
+<section class="slide">
+  <p class="kick">what it does</p>
   <h2>Four surfaces, one working animal</h2>
   <div class="cols">
-    <div class="col"><div class="k">speak or type</div><p>Live streaming sessions — the agent's thinking,
-    its tool calls with status chips, and per-turn token counts, all as they happen.</p></div>
-    <div class="col"><div class="k">dictate on-device</div><p>Mic → local Whisper → an editable prompt.
-    The audio never leaves the machine. Speak the task, review the words, then send.</p></div>
-    <div class="col"><div class="k">look in live</div><p>A browser panel shows screenshots and the action log
+    <div class="col"><div class="k">speak or type</div><p>Live streaming sessions - the agent's thinking,
+    tool calls with status chips, per-turn token counts, all as they land.</p></div>
+    <div class="col"><div class="k">dictate on-device</div><p>Mic to local Whisper to an editable prompt.
+    The audio never leaves the machine. Speak it, review it, send it.</p></div>
+    <div class="col"><div class="k">look in live</div><p>A panel shows screenshots and the action log
     while the agent works. Seeing is the trust model.</p></div>
     <div class="col"><div class="k">inspect everything</div><p>One keypress: branch, commits, dirty tree,
-    pull requests, CI runs — read live from <code>git</code> and <code>gh</code>, not from a cached dashboard.</p></div>
+    pull requests, CI - read live from <code>git</code> and <code>gh</code>, not a cached dashboard.</p></div>
   </div>
 </section>
 
+<section class="slide demo" data-demo>
+  <p class="kick">live - the inspector</p>
+  <h2>The receipts, on demand</h2>
+  <p class="dek" style="max-width:44em;font-size:1.02em">Open the inspector (Cmd-I) for the repository's
+  own truth - branch, tree, commits, PRs, CI - live. The look-in panel shows what the agent saw while it worked.</p>
+</section>
+
 <section class="slide">
-  <p class="kick">IV · why local</p>
-  <div class="stamp">zero telemetry · zero added network calls</div>
+  <p class="kick">why local</p>
+  <div class="stamp" style="margin-top:0;margin-bottom:22px">zero telemetry - zero added network calls</div>
   <h2>The work stays on your machine</h2>
-  <p class="dek">The shell adds no network calls of its own — the engine's own provider traffic is the only wire.
+  <p class="dek">The shell adds no network calls of its own - the engine's provider traffic is the only wire.
   Personas bind the agent to allowed directories and feature grants, enforced at the action choke points.
-  Repo-level access is GitHub's own <code>viewerPermission</code> — no invented roles, no parallel permission system.</p>
+  Repo access is GitHub's own <code>viewerPermission</code> - no invented roles, no parallel permission system.</p>
 </section>
 
 <section class="slide">
-  <p class="kick">V · the field named it</p>
-  <h2>Harness engineering.<br>We build at that layer.</h2>
-  <p class="dek">Your own Issue #15 gave the discipline a name: <b>harness engineering</b> —
-  "the execution environment an agent runs inside: context, permissions, retries, state."
-  And its sibling, <b>loop engineering</b> — the layer above, where the model decides at runtime.</p>
-  <div class="cols">
-    <div class="col"><div class="k">the harness</div><p>Context, tool permissions, retries, logging,
-    state persistence across calls. A platform problem, owned by the team building the runtime.
-    <b>That is exactly what this chassis is.</b></p></div>
-    <div class="col"><div class="k">the loop</div><p>Steps chosen at runtime by the model, not fixed at
-    write time. A product and workflow problem, with its own owner.</p></div>
-    <div class="col"><div class="k">the hot toast</div><p>Your words: the organizations that treat harness
-    and loop as <b>separate disciplines with separate owners</b> build the durable systems. We kept them separate.</p></div>
-  </div>
-</section>
-
-<section class="slide">
-  <p class="kick">VI · the comparable</p>
-  <h2>Hermes runs agents loose.<br>We hold the floor.</h2>
-  <p class="dek">Nous Research's Hermes is the right north star — MIT-licensed, persistent memory,
-  isolated subagents, five sandbox backends with container hardening. It answers "can an agent be
-  trusted to run unattended?" We answer the layer underneath it.</p>
-  <div class="cols">
-    <div class="col"><div class="k">what hermes does well</div><p>Isolated subagents, container hardening,
-    namespace isolation, sandbox backends from local to Modal. Real containment at the runtime edge.</p></div>
-    <div class="col"><div class="k">the layer below</div><p>Before a sandbox can trust the agent, the app
-    must trust itself. Packaged CSP and a least-privilege capability surface are where that starts.</p></div>
-    <div class="col"><div class="k">our difference</div><p>We ship the sandbox's floor <b>with regression
-    guards</b> — the build fails if the policy loosens. Receipts a demo cannot fake.</p></div>
-  </div>
-</section>
-
-<section class="slide">
-  <p class="kick">VII · why now</p>
-  <h2>The Fourth Turning,<br>in one honest breath</h2>
-  <p class="dek">Mike named it, so let's name it straight. Howe and Strauss argue American history moves
-  in long cycles, and crisis eras reward the people who lay down durable infrastructure. Some historians
-  call the theory unfalsifiable — fair. We don't need the prophecy; we need the posture it names.</p>
-  <div class="cols">
-    <div class="col"><div class="k">the frame</div><p>Crisis eras are when the durable things get built —
-    the institutions, the tooling, the habits that outlast the panic. Not a forecast; a stance.</p></div>
-    <div class="col"><div class="k">the posture</div><p>Build the floor first. Test it. Keep the receipts
-    public. Tend it so it holds under pressure — machine and community alike.</p></div>
-    <div class="col"><div class="k">the lineage</div><p>1727 Junto to a 2026 breakfast club — the same move:
-    practical people, gathered, building something meant to outlast them.</p></div>
-  </div>
-</section>
-
-<section class="slide">
-  <p class="kick">VIII · the proof</p>
+  <p class="kick">the proof</p>
   <h2>Tested at the seams most projects forget</h2>
   <div class="cols">
-    <div class="col"><div class="k">the contract</div><p>A recorded agent session is replayed through the real
-    protocol router on every test run. <b>Protocol drift fails loudly, first.</b></p></div>
-    <div class="col"><div class="k">the chassis</div><p>16 Rust unit tests cover the parser seams — streaming,
-    cancellation, session resume, inspector feeds, settings validation.</p></div>
-    <div class="col"><div class="k">the glass</div><p>A Chromium suite drives the real UI JavaScript against a
-    mocked bridge; CI builds the bundle on macOS, Windows, and Ubuntu.</p></div>
-    <div class="col"><div class="k">the floor</div><p>Packaged CSP pinned to <code>object-src/base-uri/
-    form-action/frame-ancestors 'none'</code>, and a least-privilege capability surface locked to one window.
-    <b>Both are enforced by guards that fail the suite on drift</b> — negative-tested, not assumed.</p></div>
+    <div class="col"><div class="k">the contract</div><p>A recorded agent session replays through the real
+    protocol router on every run. <b>Protocol drift fails loudly, first.</b></p></div>
+    <div class="col"><div class="k">the chassis</div><p>16 Rust unit tests cover the parser seams -
+    streaming, cancellation, resume, inspector feeds, settings.</p></div>
+    <div class="col"><div class="k">the glass</div><p>A Chromium suite drives the real UI JavaScript against
+    a mocked bridge; CI builds on macOS, Windows, and Ubuntu.</p></div>
+    <div class="col"><div class="k">the floor</div><p>Packaged CSP pinned to <code>object-src / base-uri /
+    form-action / frame-ancestors 'none'</code>, and a least-privilege capability surface locked to one window.
+    <b>Both enforced by guards that fail the suite on drift.</b></p></div>
   </div>
 </section>
 
 <section class="slide">
-  <p class="kick">IX · the live demo</p>
-  <h2>Watch for four things</h2>
-  <div class="rules">
-    <div class="rule"><div><b>The empty state.</b><span>"The grove is listening." One plain sentence starts the work.</span></div></div>
-    <div class="rule"><div><b>The stream.</b><span>Thinking, tools, and tokens render as they land — nothing batched, nothing hidden.</span></div></div>
-    <div class="rule"><div><b>The steer.</b><span>Redirect the agent mid-run. It changes course without losing the session.</span></div></div>
-    <div class="rule"><div><b>The inspector.</b><span>⌘I opens the repository's own truth — branch, tree, PRs, CI — live.</span></div></div>
-  </div>
-</section>
-
-<section class="slide">
-  <p class="kick">X · quality, in the open</p>
-  <h2>Even the QA was a swarm</h2>
-  <p class="dek">Five AI agents tested this build end-to-end this week — cold start, the conversation loop,
-  every panel, accessibility and layout, and the deck you are watching. They found one real bug:
-  a crash on the Escape key, caught, fixed, and regression-tested the same day.
-  Every other finding is filed in a public tracker. <b style="color:var(--ink)">Nothing is hidden,
-  including the flaws.</b></p>
-</section>
-
-<section class="slide">
-  <p class="kick">XI · the mission</p>
-  <div class="stamp">together we are better · always</div>
-  <h2>The old mission, carried by a new tool</h2>
-  <p class="dek">Help people solve problems. Remove the technology obstacles in their way.
-  Meet them where they are. And the belief underneath: the people closest to the problem,
-  given a voice and a tool that keeps itself honest, will out-build any monolith that
-  schedules their imagination for the next fiscal year.</p>
-  <p class="dek" style="font-size:.95em;color:var(--faint)">Built in the open by Tyler Granlund —
-  grown from the open-source Code Puppy project by Michael Pfaffenberger.</p>
-</section>
-
-<section class="slide">
-  <p class="kick">XII · the work</p>
-  <h2>Real businesses. Real tasks. Real receipts.</h2>
-  <div class="cols">
-    <div class="col"><div class="k">where it goes to work</div><p>Into small businesses and the people
-    inside the walls. The owners' pride and the books, the customers' thumbs, the town's habits —
-    every perspective is in the room before any build. That is why it fits when it ships.</p></div>
-    <div class="col"><div class="k">the business case, in one sentence</div><p>If this harness had existed
-    when the family shop that catered its neighbors' celebrations for free needed it —
-    <b>they would have had it.</b> That sentence is the whole business case.</p></div>
-    <div class="col"><div class="k">the shape of the work</div><p>Bring one task you would love to never
-    do again. Speak it out loud. The council hears it, the machine builds it, you leave with the
-    work done — and the trick of it learned.</p></div>
-    <div class="col"><div class="k">four words for the habit</div><p>Mike's R4 — reputation, readiness,
-    re-engagement, reach — is the business language for it: find the drag, simplify the process, then
-    let the right work happen on time without anyone having to remember it.</p></div>
-  </div>
-</section>
-
-<section class="slide">
-  <p class="kick">XIII · why it works</p>
-  <h2>The mechanics, plainly</h2>
-  <div class="rules">
-    <div class="rule"><div><b>Thin shell, strong engine.</b><span>The desktop owns no agent logic; the tested engine is swappable by design.</span></div></div>
-    <div class="rule"><div><b>The contract is pinned.</b><span>A recorded session replays through the real protocol router on every test run — drift fails loudly, first.</span></div></div>
-    <div class="rule"><div><b>Local-first.</b><span>The work stays on your machine. Zero telemetry, zero added network calls — a stance, not a slogan.</span></div></div>
-    <div class="rule"><div><b>Trust through seeing.</b><span>Streaming thoughts, tool cards, live look-in, the inspector — nothing happens that you cannot watch.</span></div></div>
-    <div class="rule"><div><b>It tends itself.</b><span>The grove checks its own pulse, heals, reports every self-repair in plain words — and consent survives autonomy.</span></div></div>
-  </div>
-</section>
-
-<section class="slide">
-  <p class="kick">XIV · the pledge</p>
-  <div class="stamp">the machine stays free · the value flows to the misfits</div>
-  <h2>Where every dollar goes</h2>
-  <p class="dek">Any profit the grove's work ever makes is ledgered in public and donated to the
-  <b style="color:var(--ink)">43 Institute</b> (<code>43i.org</code>) — Ken Block's foundation:
-  a 501(c)(3) creating pathways for underserved, highly driven <em>"motivated misfits"</em>
-  in action sports, motorsports, and the creative arts.</p>
-  <div class="cols">
-    <div class="col"><div class="k">why 43i</div><p>Kids who love things loudly and lack the means to
-    chase them — racing and rally, skateboards and BMX, art and music and print. Mentorship pathways,
-    access, skills, health. Their own story: a kid in a screen-printing class whose art project
-    became DC Shoes.</p></div>
-    <div class="col"><div class="k">we recognize the species</div><p>The grove's own proof is a motivated
-    misfit handed a pathway — no college degree, a director of the work at thirty-five.
-    The Method is a mentorship pathway. <b>Talent is evenly distributed; means are not.</b></p></div>
-    <div class="col"><div class="k">the transparency</div><p>Donations to 43i are unrestricted and used
-    where needed most — their words. Our ledger of earned and given is published beside the work.
-    <b>No quiet skimming, ever.</b> Their impact, in their words: <code>43i.org/impact</code></p></div>
-  </div>
-</section>
-
-<section class="slide">
-  <p class="kick">XV · the root</p>
+  <p class="kick">the root</p>
   <h2>The Leather Apron Club, 1727</h2>
-  <p class="dek">Benjamin Franklin's Junto — the Leather Apron Club — was a mutual-improvement
-  circle that turned curiosity into civic infrastructure. Its operating rules are this grove's
-  constitution. Triton already runs that instinct — a non-profit arm publishing a community
-  resource every week. The Junto is the same move, three hundred years early.</p>
-  <div class="rules">
-    <div class="rule"><div><b>Love truth for truth's sake.</b><span>Zero invented facts. Verify, or say plainly: not verified.</span></div></div>
-    <div class="rule"><div><b>Mutual aid.</b><span>"How can the Junto assist you in any of your honorable designs?" — every session starts from your goal, not the tool's features.</span></div></div>
-    <div class="rule"><div><b>Observe, inquire, prototype.</b><span>Read, understand, make the smallest change that works — in code, and in the room.</span></div></div>
-    <div class="rule"><div><b>Every learner becomes a trainer.</b><span>The index card travels. This is how a tool reaches seventy-five thousand.</span></div></div>
+  <p class="dek">Franklin's Junto was a mutual-improvement circle that turned curiosity into civic
+  infrastructure. Its rules are this grove's constitution - and Triton already runs the same instinct:
+  a non-profit arm publishing a community resource every week.</p>
+  <div class="cols">
+    <div class="col"><div class="k">love truth for truth's sake</div><p>Zero invented facts. Verify, or say
+    plainly: not verified.</p></div>
+    <div class="col"><div class="k">mutual aid</div><p>Every session starts from your goal, not the tool's
+    features - the right question is how can this help your designs succeed.</p></div>
+    <div class="col"><div class="k">every learner a trainer</div><p>Observe, inquire, prototype - then hand the
+    index card on. That is how a tool reaches a town.</p></div>
   </div>
 </section>
 
 <section class="slide">
-  <p class="kick">XVI · the council</p>
-  <h2>The founding council</h2>
-  <p class="dek">The establishment meets Friday, September 18 — invitations go out that night.
-  The first council convenes <b style="color:var(--ink)">Friday, September 25, 2026, at six —
-  Bentonville Barber Company, 113 W Central Ave, Suite 201, Bentonville.</b></p>
+  <p class="kick">the ask</p>
+  <h2>Put it to work next Thursday</h2>
   <div class="cols">
-    <div class="col"><div class="k">the ask · 01</div><p><b>Bring one task.</b> One you would love to
-    never do again. Speak it out loud; the council hears it, the machine builds it.</p></div>
-    <div class="col"><div class="k">the ask · 02</div><p><b>Honest requirements.</b> Say it plainly to a
-    neighbor first — if they can't repeat it back, it isn't honest yet. Clear timelines, real constraints.</p></div>
-    <div class="col"><div class="k">the ask · 03</div><p><b>Your perspective in the room.</b> Before any
-    build — owners' pride, customers' thumbs, the town's habits. That is why it fits when it ships.</p></div>
+    <div class="col"><div class="k">the ask - 01</div><p><b>Bring one task.</b> One you would love to never
+    do again. Speak it out loud; the council hears it, the machine builds it.</p></div>
+    <div class="col"><div class="k">the ask - 02</div><p><b>Honest requirements.</b> If a neighbor can't repeat
+    it back, it isn't clear yet. Real timelines, real constraints.</p></div>
+    <div class="col"><div class="k">the ask - 03</div><p><b>Your perspective in the room.</b> Owners' pride,
+    customers' thumbs, the town's habits - before any build. That is why it fits when it ships.</p></div>
   </div>
+  <div class="stamp">together we are better - always</div>
 </section>
 
 <section class="slide">
   <img class="mark" src="../ui/assets-mark.svg" onerror="this.style.display='none'">
   <p class="kick">the invitation</p>
   <h1>Let's put it to work.</h1>
-  <p class="dek">Give it a real task in a real repository — today, in this room. And if the shape
-  of this resonates, the follow-up is a conversation, not a demo — or a seat at the council table,
-  where the next task is already waiting.</p>
-  <p class="dek" style="margin-top:26px;font-style:normal;color:var(--cedar);font-family:'IM Fell English SC',serif;font-size:1.3rem">
-  Together we are better. Always.</p>
+  <p class="dek">Give it a real task in a real repository - today, in this room. And if the shape of this
+  resonates, the follow-up is a conversation, not a demo - or a seat at the council table, where the next
+  task is already waiting.</p>
 </section>
 
+<div id="demo-layer" aria-hidden="true">
+  <div class="stage" id="demo-stage"></div>
+  <div class="cap"><button class="demo-exit">return to slides</button>
+    <span class="demo-hint">click the app to play - return here to resume</span></div>
+</div>
+
 <script>
-  var slides=document.querySelectorAll('.slide'),i=0;
+  var slides=document.querySelectorAll('.slide'), i=0;
   var count=document.getElementById('count');
-  function go(n){slides[i].classList.remove('on');i=Math.max(0,Math.min(slides.length-1,n));slides[i].classList.add('on');
-    count.textContent=(i+1)+' / '+slides.length;}
+  var layer=document.getElementById('demo-layer');
+  var stage=document.getElementById('demo-stage');
+  var frame=document.createElement('iframe');
+  frame.id='app-frame';
+  frame.title='Spruce Grove - live interactive demo (canned bridge)';
+  stage.appendChild(frame);      // mounted once, never moved -> never reloads
+  frame.addEventListener('load',function(){
+    // the embedded app focuses its own input on boot; hand the keyboard back to
+    // the deck so arrow keys keep walking slides until the presenter clicks in
+    try{frame.blur();}catch(e){}
+    document.body.setAttribute('tabindex','-1');
+    document.body.focus();
+  });
+  var loaded=false;
+
+  function go(n){
+    if(slides[i]) slides[i].classList.remove('on');
+    i=Math.max(0,Math.min(slides.length-1,n));
+    slides[i].classList.add('on');
+    count.textContent=(i+1)+' / '+slides.length;
+    var show=slides[i].hasAttribute('data-demo');
+    if(show && !loaded){ frame.src='showcase.html'; loaded=true; }
+    if(!show){ try{frame.blur();}catch(e){} }
+    layer.classList.toggle('on', show);
+  }
   document.addEventListener('keydown',function(e){
     if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown')go(i+1);
     if(e.key==='ArrowLeft'||e.key==='PageUp')go(i-1);
     if(e.key==='Home')go(0); if(e.key==='End')go(slides.length-1);
   });
-  document.addEventListener('click',function(e){ if(e.target.closest('a'))return; go(i+1); });
+  document.addEventListener('click',function(e){
+    if(e.target.closest('a')||e.target.closest('.demo-exit')||e.target.closest('iframe'))return;
+    go(i+1);
+  });
+  var exit=document.querySelector('.demo-exit');
+  exit.addEventListener('click',function(ev){
+    ev.stopPropagation();
+    try{frame.blur();}catch(e){}
+    exit.focus();
+  });
+  go(0);
 </script>
 </body>
 </html>
