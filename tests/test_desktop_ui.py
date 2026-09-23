@@ -558,6 +558,17 @@ def main() -> int:
                 "() => document.getElementById('transcript').innerText.includes('replay: earlier you asked about the grove.')",
                 timeout=8000,
             )
+            # The "Resuming session…" placeholder must be GONE once real
+            # content lands — it used to stay stamped over the pane forever,
+            # because removal keyed on #empty-state while openSession created a
+            # plain .empty card (found live in the packaged app dry run).
+            leftovers = page.evaluate(
+                "() => document.querySelectorAll('#transcript .empty').length"
+            )
+            if leftovers:
+                failures.append(
+                    f"resume placeholder not cleared after replay ({leftovers} .empty left)"
+                )
 
             # -- 11. working-dir picker: browse -> descend -> choose -------
             page.click("#cwd-browse")

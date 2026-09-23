@@ -349,8 +349,18 @@ function scrollDown(force) {
   if (force || nearBottom(t)) t.scrollTop = t.scrollHeight;
 }
 
-function addMessage(kind, title) {
+/* The transcript placeholder has two lives: the static `#empty-state` seeded
+   in index.html, and the dynamic `.empty` cards that openSession/newChat stamp
+   while a resume connects. They must ALL go the moment real content lands —
+   keying only on the id left "Resuming session…" covering the pane forever
+   after the first message arrived (caught live in the packaged app). */
+function clearEmptyState() {
+  for (const el of els.transcript.querySelectorAll(".empty")) el.remove();
   document.getElementById("empty-state")?.remove();
+}
+
+function addMessage(kind, title) {
+  clearEmptyState();
   const box = document.createElement("div");
   box.className = "msg " + kind;
   const who = document.createElement("div");
@@ -438,7 +448,7 @@ function acpToolCard(update) {
   let card = toolEls.get(id);
   if (!card) {
     clearWaiting();
-    document.getElementById("empty-state")?.remove();
+    clearEmptyState();
     const box = document.createElement("div");
     box.className = "msg tool";
     const head = document.createElement("div");

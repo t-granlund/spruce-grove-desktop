@@ -152,11 +152,15 @@ fn grove_version() -> Result<String, String> {
         .arg("--version")
         .output()
         .map_err(|e| format!("cannot launch {program}: {e}"))?;
-    let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    // `spruce-grove --version` writes OSC color escapes ahead of the version
+    // string (same boot palette as --acp). Leaving them in made the sidebar
+    // readout show raw `[11;#1a1b26m[10;#c0caf5m…` garbage on the projector.
+    let raw = String::from_utf8_lossy(&output.stdout);
+    let text = strip_ansi(&raw).trim().to_string();
     if text.is_empty() {
         Err(format!(
             "no version output (stderr: {})",
-            String::from_utf8_lossy(&output.stderr).trim()
+            strip_ansi(&String::from_utf8_lossy(&output.stderr)).trim()
         ))
     } else {
         Ok(text)
@@ -553,6 +557,15 @@ mod tests {
     #[test]
     fn strip_ansi_removes_sgr_sequences() {
         assert_eq!(strip_ansi("\u{1b}[32mOK\u{1b}[0m plain"), "OK plain");
+    }
+
+    /// The real `spruce-grove --version` line: an OSC color palette, then the
+    /// version, on one line. Without stripping, the sidebar cli: readout showed
+    /// `[11;#1a1b26m[10;#c0caf5m…` on the projector (caught in the dry run).
+    #[test]
+    fn strip_ansi_handles_osc_version_preamble() {
+        let line = "\u{1b}]11;#1a1b26\u{7}\u{1b}]10;#c0caf5\u{7}\u{1b}]4;0;#15161e\u{7}1.0.76";
+        assert_eq!(strip_ansi(line), "1.0.76");
     }
 
     #[test]
