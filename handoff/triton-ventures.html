@@ -47,12 +47,13 @@
   .cmp td:first-child{color:var(--ink);font-weight:600;white-space:nowrap}
   .cmp tr.us td{background:rgba(111,169,122,.10)}
   .cmp tr.us td:first-child{color:var(--moss)}
-  #demo-layer,#cli-layer{position:fixed;left:50%;top:40vh;transform:translateX(-50%);width:min(1080px,92vw);
+  #demo-layer,#cli-layer,#receipts-layer{position:fixed;left:50%;top:40vh;transform:translateX(-50%);width:min(1080px,92vw);
     display:none;flex-direction:column;align-items:center;z-index:60}
-  #demo-layer.on,#cli-layer.on{display:flex}
+  #demo-layer.on,#cli-layer.on,#receipts-layer.on{display:flex}
   .stage{width:100%;height:min(520px,52vh);border:1px solid var(--line);
     border-radius:12px;overflow:hidden;background:#0b0f0c;box-shadow:0 24px 60px rgba(0,0,0,.5)}
   #cli-layer .stage{height:min(400px,42vh)}
+  #receipts-layer .stage{height:min(560px,60vh)}
   .stage iframe{width:100%;height:100%;border:0;display:block;background:#0b0f0c}
   .stage:empty::after{content:'loading the live app...';display:flex;align-items:center;justify-content:center;
     height:100%;font-family:var(--mono);font-size:12px;letter-spacing:.2em;color:var(--faint);text-transform:uppercase}
@@ -190,7 +191,7 @@
   Repo access is GitHub's own <code>viewerPermission</code> - no invented roles, no parallel permission system.</p>
 </section>
 
-<section class="slide">
+<section class="slide demo" data-receipts>
   <p class="kick">the decision layer</p>
   <h2>Where "local vs cloud" stops being philosophy</h2>
   <p class="dek" style="max-width:46em;font-size:1.02em">This week's sizzle was <b>Jev</b> (TypeSafe, a closed
@@ -206,6 +207,9 @@
     outputs meet real failures, escalation paths, and <b>someone accountable for the threshold</b>."</p></div>
   </div>
   <div class="stamp">same fork, your machine or theirs</div>
+  <p class="dek" style="max-width:46em;font-size:.86em;color:var(--faint);margin-top:10px">Live below: open the inspector on
+  <b>project</b> (the tracker read straight from the beads store) and <b>diagnostics</b> (the self-audit floor +
+  the action ledger). Every decision, written down - with someone named for the threshold.</p>
 </section>
 
 <section class="slide">
@@ -275,32 +279,52 @@
     <span class="demo-hint">the engine, headless - replay loops on its own</span></div>
 </div>
 
+<div id="receipts-layer" aria-hidden="true">
+  <div class="stage" id="receipts-stage"></div>
+  <div class="cap"><button class="demo-exit" data-exit="receipts">return to slides</button>
+    <span class="demo-hint">the inspector, live - project tracker + the self-audit floor</span></div>
+</div>
+
 <script>
   var slides=document.querySelectorAll('.slide'), i=0;
   var count=document.getElementById('count');
 
   // each demo lives in ONE fixed layer, mounted once and never moved, so the
   // embedded document never reloads and keeps its state across the deck
-  function makeLayer(layerId, stageId, attr, src, title){
+  function makeLayer(layerId, stageId, attr, src, title, onShow, onHide){
     var layer=document.getElementById(layerId);
     var stage=document.getElementById(stageId);
     var frame=document.createElement('iframe');
     frame.title=title;
     stage.appendChild(frame);
+    var layerObj = {layer:layer, stage:stage, frame:frame, attr:attr, src:src, loaded:false,
+            pending:null, onShow:onShow||null, onHide:onHide||null};
     frame.addEventListener('load',function(){
       // embedded apps focus their own inputs on boot; hand the keyboard back to
       // the deck so arrow keys keep walking slides until the presenter clicks in
       try{frame.blur();}catch(e){}
       document.body.setAttribute('tabindex','-1');
       document.body.focus();
+      // a show message that fired before load would be lost; replay it now
+      if(layerObj.pending){ layerObj.onShow && layerObj.onShow(layerObj); layerObj.pending=null; }
     });
-    return {layer:layer, stage:stage, frame:frame, attr:attr, src:src, loaded:false};
+    return layerObj;
+  }
+  // the receipts demo drives the embedded app over postMessage: on entering the
+  // slide, ask it to open the inspector on a pane; on leaving, collapse it and
+  // flip the pane so the next visit starts clean.
+  function tellApp(frame, tab){
+    try{ frame.contentWindow.postMessage({type:'grove-show-receipts', tab:tab}, '*'); }catch(e){}
   }
   var demos=[
     makeLayer('demo-layer','demo-stage','data-demo','showcase.html',
               'Spruce Grove - live interactive demo (canned bridge)'),
     makeLayer('cli-layer','cli-stage','data-cli','cli-showcase.html',
-              'Spruce Grove - CLI replay')
+              'Spruce Grove - CLI replay'),
+    makeLayer('receipts-layer','receipts-stage','data-receipts','showcase.html',
+              'Spruce Grove - receipts (project tracker + self-audit floor)',
+      function(d){ tellApp(d.frame,'project'); },
+      function(d){ try{ d.frame.contentWindow.postMessage({type:'grove-hide-receipts'},'*'); }catch(e){} })
   ];
 
   function go(n){
@@ -313,7 +337,13 @@
       var show=s.hasAttribute(d.attr);
       if(show && !d.loaded){ d.frame.src=d.src; d.loaded=true; }
       if(!show){ try{d.frame.blur();}catch(e){} }
+      var wasOn=d.layer.classList.contains('on');
       d.layer.classList.toggle('on', show);
+      if(show && !wasOn && d.onShow){
+        // defer the message until the embedded document has finished loading
+        if(d.ready) { d.onShow(d); } else { d.pending=true; }
+      }
+      if(!show && wasOn && d.onHide) d.onHide(d);
     });
   }
   document.addEventListener('keydown',function(e){

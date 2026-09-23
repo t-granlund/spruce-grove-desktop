@@ -725,6 +725,29 @@ def main() -> int:
                 timeout=4000,
             )
 
+            # -- 14d. deck hook: postMessage opens the receipts pane ---------
+            # the presentation embeds this page and posts a message to open the
+            # inspector on a pane (slide 11's live receipts demo). Prove the hook
+            # works and is idempotent/closeable, so the walkthrough cannot break.
+            page.evaluate("""() => window.postMessage(
+                {type: 'grove-show-receipts', tab: 'project'}, '*')""")
+            page.wait_for_function(
+                "() => !document.getElementById('inspector').classList.contains('hidden')"
+                " && document.querySelector('.insp-tab.active').dataset.tab === 'project'",
+                timeout=4000,
+            )
+            page.evaluate("""() => window.postMessage(
+                {type: 'grove-show-receipts', tab: 'diag'}, '*')""")
+            page.wait_for_function(
+                "() => document.querySelector('.insp-tab.active').dataset.tab === 'diag'",
+                timeout=4000,
+            )
+            page.evaluate("""() => window.postMessage({type: 'grove-hide-receipts'}, '*')""")
+            page.wait_for_function(
+                "() => document.getElementById('inspector').classList.contains('hidden')",
+                timeout=4000,
+            )
+
             # -- 15. accessibility pack: labels, live regions, tabs, focus --
             a11y = page.evaluate("""() => {
               const q = (s) => document.querySelector(s);

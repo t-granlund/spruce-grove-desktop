@@ -16,6 +16,29 @@ window.__TAURI__ = {
       window.__calls.push({ cmd, args });
       if (cmd === "grove_version") return "spruce-grove 1.0.0";
       if (cmd === "grove_default_cwd") return "/tmp/sg-dogfood";
+      if (cmd === "grove_console_sessions") {
+        // Two live terminals plus one orphan, in the CLI's --console --json
+        // shape. Set window.__liveSessions = null to simulate a CLI that
+        // cannot answer at all.
+        if (window.__liveSessions === null) throw new Error("console unavailable");
+        if (window.__liveSessions) return window.__liveSessions;
+        return [
+          { pid: 100, ppid: 99, tty: "ttys001", terminal_open: true,
+            kind: "terminal", session_name: "auto_session_20260922_180404_125317_100",
+            title: "Desktop App QA Round Two", subtitle: null, agent_name: "code-puppy",
+            cwd: "/tmp/sg-dogfood", message_count: 362, total_tokens: 259523,
+            last_autosave: "2026-09-23T13:30:23", uptime_seconds: 3600, is_live: true },
+          { pid: 200, ppid: 199, tty: "ttys003", terminal_open: true,
+            kind: "terminal", session_name: "auto_session_20260922_201559_223288_200",
+            title: "Arvest Statement Import", subtitle: null, agent_name: null,
+            cwd: "/tmp/sg-dogfood/proj-a", message_count: 156, total_tokens: 100,
+            last_autosave: "2026-09-23T13:00:00", uptime_seconds: 7200, is_live: true },
+          { pid: 300, ppid: 299, tty: "ttys009", terminal_open: false,
+            kind: "terminal", session_name: null, title: null, subtitle: null,
+            agent_name: null, cwd: null, message_count: null, total_tokens: null,
+            last_autosave: null, uptime_seconds: 90000, is_live: false },
+        ];
+      }
       if (cmd === "grove_list_dirs") {
         const tree = {
           "/tmp/sg-dogfood": ["proj-a", "proj-b", "zeta-lab"],
@@ -208,6 +231,13 @@ window.__TAURI__ = {
           <button id="sidebar-toggle" class="icon-btn" title="collapse sidebar" aria-label="collapse sidebar">&laquo;</button>
         </div>
         <button id="new-chat" class="btn solid wide" title="start a fresh session in the current directory"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M8 3v10M3 8h10" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" fill="none"/></svg><span class="lbl">new chat</span></button>
+
+        <div class="side-sec">
+          <div class="side-label">
+            running now <span id="live-count" class="live-count"></span>
+          </div>
+          <div id="live-list" class="session-list live-list"></div>
+        </div>
 
         <div class="side-sec sessions">
           <div class="side-label">sessions</div>
