@@ -141,8 +141,11 @@ We can say that sentence in their own words and it will land.
 ---
 
 ## 8. Open questions to close with Tyler before presenting
-1. **Bill Akin** role/thesis — nothing verified.
-2. **Zak Morris** bio + the "Watney" story — nothing verified; confirm Thursday details.
+1. **Bill Akins** — **CONFIRMED 2026-09-23**: co-host with **Zak Morris**, both of the
+   **Triton Foundation** (per the Luma event page). Public bio/thesis still thin; keep
+   any characterization light.
+2. **Zak Morris** — **CONFIRMED host** (Triton Foundation; Founder, Triton Ventures per
+   the masthead). The "Watney" story remains unverified.
 3. **tritonventures.com** TLS is expired — is that the right URL for the deck?
 4. **"Jev"** (TypeSafe System One) — **RESOLVED 2026-09-23**: source is the Emerging
    Tech Breakfast Club broadcast (Issue #15, Frontier Pulse). See §10 and
@@ -150,6 +153,13 @@ We can say that sentence in their own words and it will land.
    by search; confirm spelling/source before it appears on a slide.
 5. Broken `web-retriever` subagent (CLI v1.0.65 `ToolContext` ImportError) — fix or just
    work around? (blocks re-running live people research)
+
+### The two-date runway (confirmed 2026-09-23)
+- **Thu Sep 24, 8:30–9:45 AM CT** — the breakfast, Fayetteville Public Library (Ziegler
+  room). The room the deck is written for.
+- **Fri Sep 25, 9:00–9:45 AM CT** — **Triton Ventures – Discovery Conversation** with Zak
+  (booked via Google scheduling; not yet on the synced calendar). Dedicated follow-up
+  time. Prep: `triton-discovery-call-prep.md`.
 
 ---
 

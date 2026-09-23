@@ -17,8 +17,24 @@
 - **Location:** <https://www.emtech-breakfast.club> — passphrase **`sizzle`** →
   *Enter Room*. (Passphrase confirmed by Tyler; the gate is client-side on the
   "Gate" page.)
-- **First in-person gathering:** **Thursday, September 24, 2026** (tomorrow), at the
-  **Fayetteville Public Library**.
+## The two dates (aligned 2026-09-23)
+
+**1. The breakfast — Thursday, September 24, 2026, 8:30–9:45 AM CT** 🥇
+- **Emerging Tech Breakfast Club – Fayetteville**, at the **Fayetteville Public
+  Library** — **Ziegler room**. Park in the **South Parking Lot**; enter through the
+  **McIlroy Entrance** off School Ave (closest to Rock St).
+- **Hosted by Zak Morris** (Triton Foundation) with **Bill Akins of Triton Foundation**.
+  ~18 going. Registration/updates: <https://luma.com/8k2n4jp0>.
+- This is the in-person room the deck (`triton-ventures.html`) is written for.
+
+**2. The discovery call — Friday, September 25, 2026, 9:00–9:45 AM CT** 🥈
+- **Triton Ventures – Discovery Conversation** with **Zak Morris** (booked via Google
+  appointment scheduling; confirmation sent to `hello@tylergranlund.com`).
+- 45 minutes of *dedicated* time — the follow-up the deck's closing slide invites
+  ("the follow-up is a conversation, not a demo"). Prep:
+  `triton-discovery-call-prep.md`.
+- **Note:** this one was booked off-calendar; it is **not in the synced Apple/Google
+  calendar** as of 2026-09-23 — worth adding so it doesn't slip.
 
 ### Editorial desks (the taxonomy the room thinks in)
 

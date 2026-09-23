@@ -28,6 +28,14 @@ setup - no server, no build, no network. It works offline from `file://`.
 broadcast from Triton Station (Zak Morris + Bill Akins). It maps the room's recurring desks
 (sovereignty, agent governance, receipts, NWA-local) so the deck speaks their language.
 
+## The two-date runway (confirmed 2026-09-23)
+
+- **Thu Sep 24, 8:30-9:45 AM CT** - the breakfast, **Fayetteville Public Library**
+  (Ziegler room; South Parking Lot / McIlroy Entrance). Hosted by Zak Morris + Bill Akins
+  (Triton Foundation). The room this deck is written for.
+- **Fri Sep 25, 9:00-9:45 AM CT** - **Triton Ventures Discovery Conversation** with Zak.
+  Dedicated follow-up time. Prep notes: `triton-discovery-call-prep.md`.
+
 - **Click into a demo to play.** While you are playing, arrow keys drive the embed, not the
   deck (that is intended).
 - **Click "return to slides"** (under the embed) to hand the keyboard back to the deck.
