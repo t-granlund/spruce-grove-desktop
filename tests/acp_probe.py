@@ -14,11 +14,36 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import subprocess
 import sys
 import threading
 import time
 from pathlib import Path
+
+# The CLI writes terminal color escapes on stdout at boot, then the first
+# JSON-RPC message on the SAME physical line (observed: ~256 bytes of OSC).
+# A raw json.loads chokes on that prefix, so every line is de-ANSI'd first —
+# the same rule the Rust client now applies in acp.rs::parse_line.
+_OSC = re.compile(r"\x1b\][^\x07]*\x07")
+_CSI = re.compile(r"\x1b\[[0-?]*[ -/]*[@-~]")
+
+
+def parse_wire_line(line: str):
+    """Strip ANSI from one stdout line and parse it as JSON-RPC, or None."""
+    cleaned = _CSI.sub("", _OSC.sub("", line)).strip()
+    if not cleaned:
+        return None
+    try:
+        return json.loads(cleaned)
+    except json.JSONDecodeError:
+        start = cleaned.find("{")
+        if start < 0:
+            return None
+        try:
+            return json.loads(cleaned[start:])
+        except json.JSONDecodeError:
+            return None
 
 CWD = os.environ.get("ACP_PROBE_CWD", "/tmp/sg-dogfood")
 TIMEOUT = float(os.environ.get("ACP_PROBE_TIMEOUT", "90"))
@@ -50,12 +75,8 @@ class AcpProbe:
     def _read_loop(self) -> None:
         assert self.proc.stdout is not None
         for line in self.proc.stdout:
-            line = line.strip()
-            if not line:
-                continue
-            try:
-                msg = json.loads(line)
-            except json.JSONDecodeError:
+            msg = parse_wire_line(line)
+            if msg is None:
                 continue
             with self._lock:
                 self.seen.append(msg)
