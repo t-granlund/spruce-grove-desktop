@@ -47,6 +47,29 @@ def csp_guard(failures):
         if d not in TEST_CSP:
             failures.append(f"harness TEST_CSP drifted from packaged CSP: {d}")
 
+
+# The main window is the only surface the app needs. Its permission set is an
+# explicit allowlist, not a wildcard: a future PR that widens the capability
+# surface (fs:, shell:, http:, any "*") fails here before it can ship.
+CAP_ALLOWED = {"core:default"}
+CAP_WINDOWS = ["main"]
+
+
+def cap_guard(failures):
+    """Assert the Tauri capability surface stays least-privilege."""
+    import json
+    cap_path = Path(__file__).resolve().parent.parent / "src-tauri" / "capabilities" / "default.json"
+    cap = json.loads(cap_path.read_text())
+    if cap.get("identifier") != "default":
+        failures.append(f"capability identifier drifted: {cap.get('identifier')!r}")
+    if cap.get("windows") != CAP_WINDOWS:
+        failures.append(f"capability windows widened: {cap.get('windows')!r} != {CAP_WINDOWS!r}")
+    for perm in cap.get("permissions", []):
+        if perm not in CAP_ALLOWED:
+            failures.append(f"capability permission outside allowlist: {perm!r}")
+        if "*" in perm:
+            failures.append(f"capability permission uses a wildcard: {perm!r}")
+
 MOCK = r"""
 window.__calls = [];
 window.__acpHandler = null;
@@ -226,6 +249,7 @@ def main() -> int:
     threading.Thread(target=server.serve_forever, daemon=True).start()
     failures = []
     csp_guard(failures)
+    cap_guard(failures)
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(
