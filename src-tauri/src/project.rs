@@ -12,7 +12,7 @@
 //! pane says that plainly instead of inventing a view.
 
 use serde_json::{json, Value};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use crate::inspector::run_with_timeout;
@@ -22,23 +22,113 @@ const BD_TIMEOUT: Duration = Duration::from_secs(8);
 /// Governance / process documents the project view surfaces. These are the
 /// "ways of working" the repo already holds; the view is a window, not a
 /// second copy. Missing files are reported as absent, never stubbed.
-const DOC_CANDIDATES: &[(&str, &str)] = &[
-    ("GOVERNANCE.md", "governance"),
-    ("SOVEREIGNTY.md", "sovereignty"),
-    ("docs/SOVEREIGNTY-EXECUTION.md", "sovereignty: execution board"),
-    ("docs/SOVEREIGNTY-INFRASTRUCTURE.md", "sovereignty: infrastructure"),
-    ("PLAN.md", "plan"),
-    ("ETHOS.md", "ethos"),
-    ("BRAND.md", "brand"),
-    ("AGENTS.md", "agents / ways of working"),
-    ("CHANGELOG.md", "changelog"),
-    ("BUILD-LOG.md", "build log"),
-    ("PROVENANCE.md", "provenance"),
-    ("MASTER-CLASS.md", "master class"),
-    ("docs/DOMAIN-LAUNCH.md", "domain launch"),
-    ("docs/DEPENDENCY-EXIT.md", "dependency exit"),
-    ("docs/COMPAT-EXIT.md", "compatibility exit"),
+///
+/// `(name, label, family)` — `family` lets one category hold several docs
+/// without the view treating them as rivals for a single slot.
+const DOC_CANDIDATES: &[(&str, &str, &str)] = &[
+    ("GOVERNANCE.md", "governance", "governance"),
+    ("SOVEREIGNTY.md", "sovereignty", "governance"),
+    (
+        "docs/SOVEREIGNTY-EXECUTION.md",
+        "sovereignty: execution board",
+        "governance",
+    ),
+    (
+        "docs/SOVEREIGNTY-INFRASTRUCTURE.md",
+        "sovereignty: infrastructure",
+        "governance",
+    ),
+    ("PLAN.md", "plan", "plan"),
+    ("ETHOS.md", "ethos", "ethos"),
+    ("BRAND.md", "brand", "brand"),
+    ("AGENTS.md", "agents / ways of working", "ways of working"),
+    ("CHANGELOG.md", "changelog", "history"),
+    ("BUILD-LOG.md", "build log", "history"),
+    ("PROVENANCE.md", "provenance", "history"),
+    ("MASTER-CLASS.md", "master class", "ways of working"),
+    ("docs/DOMAIN-LAUNCH.md", "domain launch", "operations"),
+    ("docs/DEPENDENCY-EXIT.md", "dependency exit", "operations"),
+    ("docs/COMPAT-EXIT.md", "compatibility exit", "operations"),
 ];
+
+/// Suffixes that mark a document as part of the governance surface, wherever
+/// it lives. This is the *convention*: a new `docs/ADR-007-listen-ports.md`
+/// or `docs/BRD.md` is surfaced by NAMING, with no code change here — which is
+/// the whole point, since a fixed candidate list means every new governance
+/// doc needs a Rust edit before anyone can see it.
+const DOC_SUFFIXES: &[&str] = &[
+    "ADR.md",
+    "BRD.md",
+    "GOVERNANCE.md",
+    "PIPELINE.md",
+    "PLAN.md",
+    "PROVENANCE.md",
+    "RFC.md",
+    "SOVEREIGNTY.md",
+];
+
+/// Where convention-discovered documents are looked for, repo-root relative.
+/// Shallow and explicit: a deep walk would pull test fixtures and vendored
+/// trees into the governance surface.
+const DOC_SEARCH_DIRS: &[&str] = &["", "docs", "docs/adr", "docs/rfc"];
+
+/// Directories never worth searching for governance docs.
+const DOC_SKIP_DIRS: &[&str] = &[
+    ".git",
+    ".venv",
+    "node_modules",
+    "target",
+    "site-packages",
+    "dist",
+    "build",
+];
+
+/// Documents the repo's own naming convention marks as governance, sorted.
+///
+/// Searches a shallow, explicit set of directories rather than walking the
+/// tree, so vendored code and test fixtures can never masquerade as governance.
+/// A missing directory is simply no results.
+fn discover_governance_docs(cwd: &str) -> Vec<String> {
+    let mut found: Vec<String> = Vec::new();
+    for dir in DOC_SEARCH_DIRS {
+        let base = if dir.is_empty() {
+            PathBuf::from(cwd)
+        } else {
+            Path::new(cwd).join(dir)
+        };
+        let Ok(entries) = std::fs::read_dir(&base) else {
+            continue; // absent directory is not an error
+        };
+        for entry in entries.flatten() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            if !name.ends_with(".md") || !entry.path().is_file() {
+                continue;
+            }
+            let upper = name.to_uppercase();
+            let matched = DOC_SUFFIXES.iter().any(|suffix| {
+                // Accept both the bare form (`ADR.md`) and the numbered form
+                // (`ADR-007-listen-ports.md`), which is how these are usually
+                // filed. Compare stems, so the ".md" is stripped once, from
+                // the right place, rather than uppercased and matched against.
+                let stem = suffix.trim_end_matches(".md").to_uppercase();
+                let file_stem = upper.trim_end_matches(".MD");
+                file_stem == stem || file_stem.starts_with(&format!("{stem}-"))
+            });
+            if !matched {
+                continue;
+            }
+            let rel = if dir.is_empty() {
+                name
+            } else {
+                format!("{dir}/{name}")
+            };
+            found.push(rel);
+        }
+    }
+    found.sort();
+    found.dedup();
+    found
+}
 
 /// `bd` resolution: the uv-installed wrapper first, then PATH. Mirrors the CLI
 /// resolution order in main.rs so the shell and the tracker agree.
@@ -147,14 +237,47 @@ pub fn project_state(cwd: &str) -> Value {
         })
     });
 
-    // Project docs — the governance / plan / pipeline surface.
-    let docs: Vec<Value> = DOC_CANDIDATES
+    // Project docs — the governance / plan / pipeline surface. The known
+    // candidates first, then anything the repo's own naming convention marks
+    // as governance, so a new ADR/BRD/PIPELINE doc appears on its own.
+    let mut docs: Vec<Value> = DOC_CANDIDATES
         .iter()
-        .map(|(rel, label)| {
+        .map(|(rel, label, family)| {
             let present = Path::new(cwd).join(rel).is_file();
-            json!({ "path": rel, "label": label, "present": present })
+            json!({
+                "path": rel, "label": label, "family": family,
+                "present": present, "discovered": false,
+            })
         })
         .collect();
+
+    let known: std::collections::HashSet<&str> =
+        DOC_CANDIDATES.iter().map(|(rel, _, _)| *rel).collect();
+    for rel in discover_governance_docs(cwd) {
+        if known.contains(rel.as_str()) {
+            continue; // already listed above, with a curated label
+        }
+        let label = rel
+            .rsplit('/')
+            .next()
+            .unwrap_or(rel.as_str())
+            .trim_end_matches(".md")
+            .replace(['-', '_'], " ")
+            .to_lowercase();
+        let family = if rel.to_lowercase().contains("adr") {
+            "decisions"
+        } else if rel.to_lowercase().contains("brd") {
+            "requirements"
+        } else if rel.to_lowercase().contains("pipeline") {
+            "pipeline"
+        } else {
+            "governance"
+        };
+        docs.push(json!({
+            "path": rel, "label": label, "family": family,
+            "present": true, "discovered": true,
+        }));
+    }
 
     json!({
         "is_beads": true,
@@ -194,8 +317,89 @@ mod tests {
     #[test]
     fn doc_candidates_are_unique() {
         let mut seen = std::collections::HashSet::new();
-        for (rel, _) in DOC_CANDIDATES {
+        for (rel, _, _) in DOC_CANDIDATES {
             assert!(seen.insert(*rel), "duplicate doc candidate: {rel}");
         }
+    }
+
+    #[test]
+    fn every_candidate_declares_a_family() {
+        for (rel, label, family) in DOC_CANDIDATES {
+            assert!(!family.is_empty(), "{rel} has no family");
+            assert!(!label.is_empty(), "{rel} has no label");
+        }
+    }
+
+    /// Build a temp tree without pulling in a dev-dependency.
+    fn temp_tree(files: &[&str]) -> std::path::PathBuf {
+        let base = std::env::temp_dir().join(format!(
+            "grove-project-test-{}-{:?}",
+            std::process::id(),
+            std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap()
+                .as_nanos()
+        ));
+        for rel in files {
+            let path = base.join(rel);
+            std::fs::create_dir_all(path.parent().unwrap()).unwrap();
+            std::fs::write(&path, "# doc").unwrap();
+        }
+        base
+    }
+
+    #[test]
+    fn convention_finds_numbered_adrs_and_brds() {
+        let base = temp_tree(&[
+            "docs/ADR-007-listen-ports.md",
+            "docs/BRD.md",
+            "docs/PIPELINE.md",
+            "docs/random-notes.md", // must NOT be picked up
+        ]);
+        let found = discover_governance_docs(base.to_str().unwrap());
+        assert!(found.contains(&"docs/ADR-007-listen-ports.md".to_string()));
+        assert!(found.contains(&"docs/BRD.md".to_string()));
+        assert!(found.contains(&"docs/PIPELINE.md".to_string()));
+        assert!(
+            !found.iter().any(|f| f.contains("random-notes")),
+            "a non-governance doc leaked in: {found:?}"
+        );
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn convention_ignores_directories_that_do_not_exist() {
+        let base = temp_tree(&["docs/ADR.md"]);
+        // docs/adr and docs/rfc are absent; that must simply yield nothing.
+        assert_eq!(
+            discover_governance_docs(base.to_str().unwrap()),
+            vec!["docs/ADR.md".to_string()]
+        );
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn convention_does_not_recurse_into_vendored_trees() {
+        let base = temp_tree(&[
+            "node_modules/pkg/BRD.md",
+            "target/debug/ADR.md",
+            "docs/PLAN.md",
+        ]);
+        let found = discover_governance_docs(base.to_str().unwrap());
+        assert_eq!(found, vec!["docs/PLAN.md".to_string()]);
+        let _ = std::fs::remove_dir_all(&base);
+    }
+
+    #[test]
+    fn convention_results_are_sorted_and_deduped() {
+        let base = temp_tree(&["docs/BRD.md", "docs/ADR.md", "PLAN.md"]);
+        let found = discover_governance_docs(base.to_str().unwrap());
+        let mut sorted = found.clone();
+        sorted.sort();
+        assert_eq!(found, sorted);
+        let mut deduped = found.clone();
+        deduped.dedup();
+        assert_eq!(found, deduped);
+        let _ = std::fs::remove_dir_all(&base);
     }
 }

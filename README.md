@@ -44,6 +44,15 @@ CLI rather than re-implementing the harness, so the fork's diff does not grow.
   tree via live git), GitHub (PRs, workflow runs, deep links via `gh`),
   session turns (state, duration, tokens), and a **diagnostics** tab
   (platform, engine seams, analytics, session error ring + copy-report).
+- [x] **Project view** (inspector tab): the repo's own bead tracker, read
+  directly via `bd list`, plus its governance documents. Documents are found
+  two ways — a curated candidate list *and* the repo's own naming convention,
+  so a new `ADR-007-*.md`, `BRD.md` or `PIPELINE.md` shows up on its own,
+  flagged `found` rather than needing a code change. The convention is:
+  `ADR.md` / `BRD.md` / `GOVERNANCE.md` / `PIPELINE.md` / `PLAN.md` /
+  `PROVENANCE.md` / `RFC.md` / `SOVEREIGNTY.md`, bare or `NAME-<detail>.md`,
+  in the repo root or `docs/`, `docs/adr/`, `docs/rfc/`. Nothing is stubbed:
+  a missing doc reports `absent`.
 - [x] **Settings** (⌘,): persisted to the platform data dir, applied live.
 - [x] **Personas with repo-level permissions**: personas bind allowed
   working dirs + feature grants (prompts / dictation / look-in /

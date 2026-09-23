@@ -916,7 +916,13 @@ function renderProject(p) {
   }
   if (!(p.issues || []).length) issues.appendChild(el2("div", "insp-empty", "tracker empty"));
 
-  for (const d of (p.docs || [])) {
+  // Documents the repo's naming convention marks as governance come back
+  // flagged `discovered`; surfacing them distinctly tells the user the view
+  // found them by convention rather than from a hardcoded list.
+  const docRows = [...(p.docs || [])].sort(
+    (a, b) => Number(b.discovered ?? false) - Number(a.discovered ?? false)
+  );
+  for (const d of docRows) {
     const row = el2("div", "insp-row");
     const open = el2("span", "insp-main", d.label + "  " + d.path);
     if (d.present) {
@@ -930,7 +936,10 @@ function renderProject(p) {
     } else {
       open.classList.add("insp-empty");
     }
-    row.append(el2("span", "insp-hash", d.present ? "open" : "absent"), open);
+    const tag = d.discovered ? "found" : d.present ? "open" : "absent";
+    const badge = el2("span", "insp-hash", tag);
+    if (d.discovered) badge.title = "discovered by the repo's doc convention";
+    row.append(badge, open);
     docs.appendChild(row);
   }
 }
