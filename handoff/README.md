@@ -18,6 +18,15 @@ setup - no server, no build, no network. It works offline from `file://`.
   tokens stream in. Open the inspector with Ctrl-Cmd-I.
 - **Slide 8 "Same engine, no shell"** shows the engine *headless* - a terminal replay of a
   real session's shape (labelled `REPLAY` on purpose; the live CLI is the real demo).
+- **Slide 11 "Where 'local vs cloud' stops being philosophy"** is the Jev/Laya story from this
+  week's signal - the decision layer, closed API vs open weights. Sourced in
+  `emtech-breakfast-club-source.md`; read it before presenting.
+
+## The emerging-tech context (read before the Thursday breakfast)
+
+`emtech-breakfast-club-source.md` is the club's canon - the weekly *Signal // Tuesday*
+broadcast from Triton Station (Zak Morris + Bill Akins). It maps the room's recurring desks
+(sovereignty, agent governance, receipts, NWA-local) so the deck speaks their language.
 
 - **Click into a demo to play.** While you are playing, arrow keys drive the embed, not the
   deck (that is intended).

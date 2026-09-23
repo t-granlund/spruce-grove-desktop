@@ -191,6 +191,24 @@
 </section>
 
 <section class="slide">
+  <p class="kick">the decision layer</p>
+  <h2>Where "local vs cloud" stops being philosophy</h2>
+  <p class="dek" style="max-width:46em;font-size:1.02em">This week's sizzle was <b>Jev</b> (TypeSafe, a closed
+  paid API) and <b>Laya</b> (Apache-2.0, 421M params, open weights) - two takes on the same job: not
+  generate text, but <b>return a bounded decision with a confidence you can act on</b>. Routing, scoring,
+  guardrails. The kind of call an agent makes thousands of times a minute.</p>
+  <div class="cols">
+    <div class="col"><div class="k">the closed lane</div><p>70-500 ms, ~$0.042 / million input tokens
+    (vendor figures) - fast and cheap, <b>on someone else's rails</b>.</p></div>
+    <div class="col"><div class="k">the open lane</div><p>Same problem, open weights you host. Slower to
+    stand up - but <b>nothing upstream can switch it off</b>.</p></div>
+    <div class="col"><div class="k">the real work</div><p>"The hard part arrives after release - when
+    outputs meet real failures, escalation paths, and <b>someone accountable for the threshold</b>."</p></div>
+  </div>
+  <div class="stamp">same fork, your machine or theirs</div>
+</section>
+
+<section class="slide">
   <p class="kick">the proof</p>
   <h2>Tested at the seams most projects forget</h2>
   <div class="cols">
