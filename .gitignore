@@ -9,7 +9,10 @@ dist/
 *.db
 .beads-credential-key
 
-# Session log dumps (the spruce-grove CLI writes these to cwd)
+# Session log dumps (the spruce-grove CLI writes these to cwd).
+# Dump names vary -- Log at <ts>, NEWLog, LATESTLog, WHAT!Log,
+# NEW-SEPxxLog -- so anchor on the shared 'Log at <timestamp>.txt' tail.
+*Log at *.txt
 LATESTLog*.txt
 
 # macOS
