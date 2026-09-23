@@ -144,8 +144,10 @@ We can say that sentence in their own words and it will land.
 1. **Bill Akin** role/thesis — nothing verified.
 2. **Zak Morris** bio + the "Watney" story — nothing verified; confirm Thursday details.
 3. **tritonventures.com** TLS is expired — is that the right URL for the deck?
-4. **"Jev"** (TypeSafe System One) and **"Opus 5.5 launching today"** — unconfirmed by
-   search; confirm spelling/source before they appear on a slide.
+4. **"Jev"** (TypeSafe System One) — **RESOLVED 2026-09-23**: source is the Emerging
+   Tech Breakfast Club broadcast (Issue #15, Frontier Pulse). See §10 and
+   `emtech-breakfast-club-source.md`. **"Opus 5.5 launching today"** — still unconfirmed
+   by search; confirm spelling/source before it appears on a slide.
 5. Broken `web-retriever` subagent (CLI v1.0.65 `ToolContext` ImportError) — fix or just
    work around? (blocks re-running live people research)
 
@@ -188,7 +190,20 @@ the product**. Tyler ran that playbook at scale. Spruce Grove is that same playb
 to a machine: it *listens first, shows its work, and never pretends to know something it
 doesn't.*
 
-## 10. Parked / not to be presented
-- **Jev (cloud) vs Laya (local):** Tyler raised this and could not recall the source the next
-  morning. Nothing on disk, nothing verifiable. **Do not invent it into the deck.** If the
-  source surfaces, the natural home is the "why local / sovereign AI" slide.
+## 10. Jev / Laya — RESOLVED (source found)
+- **The source surfaced on 2026-09-23.** It is **Issue #15, Frontier Pulse, lead story**
+  of the **Emerging Technology Breakfast Club** broadcast *Signal // Tuesday* (Triton
+  Station; Zak Morris + Bill Akins): *"Jev Turns Decision Inference Into a Product"*
+  (dated 09·15).
+- **Jev** = TypeSafe's **System One** model, early access **Sept 15, 2026** — typed
+  state→decisions, **not generated text**; closed/paid API. **Laya** = Apache-2.0,
+  421M-param open-weight alternative (Sept 18). **Cloud vs. local, made concrete.**
+- Full verbatim capture, quotes, sources, and the room's recurring desks are in
+  **`emtech-breakfast-club-source.md`** (this folder).
+- **Where it goes in the deck:** the **"why local / sovereign AI"** slide. Present it as
+  *the cloud/sovereign fork made concrete in one decision layer* — **not** as a
+  benchmark contest (the issue itself flags Laya's comparison claims as unverified).
+- **The club is the audience canon.** Sovereign/local-first is *their* recurring desk
+  (`Sovereign AI`), and containment/receipts is their agent-governance thread — both
+  validate Spruce Grove's thesis directly. See the companion file before the Thursday
+  breakfast.
