@@ -26,7 +26,26 @@ PORT = 8123
 # real app has no inline scripts; Tauri injects its own with nonces).
 TEST_CSP = ("default-src 'self'; script-src 'self' 'unsafe-inline'; "
             "style-src 'self' 'unsafe-inline'; img-src 'self' data:; "
-            "font-src 'self' data:; connect-src ipc: http://ipc.localhost")
+            "font-src 'self' data:; connect-src ipc: http://ipc.localhost; "
+            "object-src 'none'; base-uri 'none'; form-action 'none'; "
+            "frame-ancestors 'none'")
+
+# Hardening directives that must survive in both the packaged policy and the
+# harness copy. If someone loosens the CSP, this fails before the app ships.
+CSP_HARDENING = ("object-src 'none'", "base-uri 'none'",
+                 "form-action 'none'", "frame-ancestors 'none'")
+
+
+def csp_guard(failures):
+    """Assert the packaged CSP keeps its hardening and the harness mirrors it."""
+    import json
+    conf_path = Path(__file__).resolve().parent.parent / "src-tauri" / "tauri.conf.json"
+    packaged = json.loads(conf_path.read_text())["app"]["security"]["csp"]
+    for d in CSP_HARDENING:
+        if d not in packaged:
+            failures.append(f"packaged CSP missing hardening directive: {d}")
+        if d not in TEST_CSP:
+            failures.append(f"harness TEST_CSP drifted from packaged CSP: {d}")
 
 MOCK = r"""
 window.__calls = [];
@@ -206,6 +225,7 @@ def main() -> int:
     server = socketserver.TCPServer(("127.0.0.1", PORT), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     failures = []
+    csp_guard(failures)
     try:
         with sync_playwright() as p:
             browser = p.chromium.launch(
