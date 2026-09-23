@@ -20,7 +20,7 @@ const GIT_TIMEOUT: Duration = Duration::from_secs(5);
 /// spawn failure, timeout, or unreadable output — callers decide what
 /// "absent" renders as. stdout is capped at 256KB (git/gh never approach
 /// it; a runaway pipe must not balloon memory).
-fn run_with_timeout(
+pub(crate) fn run_with_timeout(
     program: &str,
     args: &[&str],
     cwd: &str,
@@ -247,7 +247,7 @@ pub fn grove_git_state(cwd: String) -> Result<Value, String> {
 // The shell runs on macOS today and must run on Windows 11 and current
 // stable Linux. Every OS-flavored decision lives here, behind cfg.
 
-fn data_dir() -> std::path::PathBuf {
+pub(crate) fn data_dir() -> std::path::PathBuf {
     let home = std::env::var("HOME")
         .or_else(|_| std::env::var("USERPROFILE"))
         .unwrap_or_else(|_| ".".into());
@@ -535,7 +535,7 @@ fn persisted_errors() -> Value {
 }
 
 /// Local wall-clock timestamp, no chrono dependency (RFC 3339-ish).
-fn chrono_now() -> String {
+pub(crate) fn chrono_now() -> String {
     let now = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default();

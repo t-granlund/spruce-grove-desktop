@@ -123,6 +123,36 @@ window.__TAURI__ = {
           },
         };
       }
+      if (cmd === "grove_ledger_record") { window.__ledger = (window.__ledger || []); window.__ledger.push(args); return undefined; }
+      if (cmd === "grove_ledger_tail") {
+        return { entries: [
+          { at: "2026-09-23T13:00:00Z", kind: "tool", cwd: "/tmp/sg-dogfood", summary: "read_file", outcome: "completed" },
+          { at: "2026-09-23T13:00:05Z", kind: "permission", cwd: "/tmp/sg-dogfood", summary: "write_file", outcome: "auto-allowed" },
+        ], path: "/data/action-ledger.jsonl" };
+      }
+      if (cmd === "grove_self_audit") {
+        return { csp: "default-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+          csp_directives: ["default-src 'self'", "object-src 'none'", "base-uri 'none'", "form-action 'none'", "frame-ancestors 'none'"],
+          required_hardening: ["object-src 'none'", "base-uri 'none'", "form-action 'none'", "frame-ancestors 'none'"],
+          missing_hardening: [],
+          capability: { windows: ["main"], permissions: ["core:default"], wildcards: [] },
+          floor_intact: true,
+          verdict: "floor intact — CSP hardening present, capability surface least-privilege (one window, no wildcards)" };
+      }
+      if (cmd === "grove_project_state") {
+        if (!args.cwd) throw new Error("no cwd");
+        return { is_beads: true, bd_found: true, bd_program: "bd", ok: true, cwd: args.cwd,
+          counts: { open: 2, in_progress: 1, blocked: 1, closed: 17, deferred: 0, total: 21 },
+          issues: [
+            { id: "spruce-grove-desktop-qp4", title: "Containment + receipts", status: "in_progress", priority: 2, issue_type: "feature", updated_at: "2026-09-23T00:00:00Z" },
+            { id: "spruce-grove-desktop-o5l", title: "Jev vs Laya", status: "open", priority: 2, issue_type: "task", updated_at: "2026-09-23T00:00:00Z" },
+          ],
+          docs: [
+            { path: "GOVERNANCE.md", label: "governance", present: true },
+            { path: "PLAN.md", label: "plan", present: true },
+            { path: "BRAND.md", label: "brand", present: false },
+          ] };
+      }
       if (cmd === "grove_open_url" || cmd === "grove_open_path") return undefined;
       if (cmd === "grove_diagnostics") {
         return { app_version: "0.1.0", os: "macOS 27.0 (26A428)", arch: "arm64", pid: 4242,
@@ -239,6 +269,7 @@ window.__TAURI__ = {
             <span class="insp-title">inspector</span>
             <div class="insp-tabs" role="tablist" aria-label="inspector panes">
               <button class="insp-tab active" data-tab="repo" role="tab" aria-selected="true" aria-controls="insp-pane-repo">repo</button>
+              <button class="insp-tab" data-tab="project" role="tab" aria-selected="false" aria-controls="insp-pane-project" tabindex="-1">project</button>
               <button class="insp-tab" data-tab="diag" role="tab" aria-selected="false" aria-controls="insp-pane-diag" tabindex="-1">diagnostics</button>
             </div>
             <span id="insp-updated" class="insp-updated" title="last refresh"></span>
@@ -269,6 +300,21 @@ window.__TAURI__ = {
                 <div id="insp-turns" class="insp-list"></div>
               </section>
             </div>
+            <div id="insp-pane-project" class="insp-pane hidden" role="tabpanel" aria-label="project tracker and governance">
+              <section class="insp-sec">
+                <div class="side-label">core project</div>
+                <div id="proj-cwd" class="insp-branch" title="working directory"></div>
+                <div id="proj-counts" class="insp-kv"></div>
+              </section>
+              <section class="insp-sec">
+                <div class="side-label">tracker · beads (direct read)</div>
+                <div id="proj-issues" class="insp-list"></div>
+              </section>
+              <section class="insp-sec">
+                <div class="side-label">governance &amp; plan</div>
+                <div id="proj-docs" class="insp-list"></div>
+              </section>
+            </div>
             <div id="insp-pane-diag" class="insp-pane hidden" role="tabpanel" aria-label="diagnostics">
               <section class="insp-sec">
                 <div class="side-label">platform</div>
@@ -281,6 +327,12 @@ window.__TAURI__ = {
               <section class="insp-sec">
                 <div class="side-label">analytics</div>
                 <div id="diag-analytics" class="insp-kv"></div>
+              </section>
+              <section class="insp-sec">
+                <div class="side-label">self-audit · the floor</div>
+                <div id="diag-floor" class="insp-kv"></div>
+                <div class="side-label sub">agent action ledger (receipts)</div>
+                <div id="diag-ledger" class="insp-list"></div>
               </section>
               <section class="insp-sec">
                 <div class="side-label">errors (this session)</div>

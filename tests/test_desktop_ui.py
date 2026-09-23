@@ -189,6 +189,36 @@ window.__TAURI__ = {
           },
         };
       }
+      if (cmd === "grove_ledger_record") { window.__ledger = (window.__ledger || []); window.__ledger.push(args); return undefined; }
+      if (cmd === "grove_ledger_tail") {
+        return { entries: [
+          { at: "2026-09-23T13:00:00Z", kind: "tool", cwd: "/tmp/sg-dogfood", summary: "read_file", outcome: "completed" },
+          { at: "2026-09-23T13:00:05Z", kind: "permission", cwd: "/tmp/sg-dogfood", summary: "write_file", outcome: "auto-allowed" },
+        ], path: "/data/action-ledger.jsonl" };
+      }
+      if (cmd === "grove_self_audit") {
+        return { csp: "default-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+          csp_directives: ["default-src 'self'", "object-src 'none'", "base-uri 'none'", "form-action 'none'", "frame-ancestors 'none'"],
+          required_hardening: ["object-src 'none'", "base-uri 'none'", "form-action 'none'", "frame-ancestors 'none'"],
+          missing_hardening: [],
+          capability: { windows: ["main"], permissions: ["core:default"], wildcards: [] },
+          floor_intact: true,
+          verdict: "floor intact — CSP hardening present, capability surface least-privilege (one window, no wildcards)" };
+      }
+      if (cmd === "grove_project_state") {
+        if (!args.cwd) throw new Error("no cwd");
+        return { is_beads: true, bd_found: true, bd_program: "bd", ok: true, cwd: args.cwd,
+          counts: { open: 2, in_progress: 1, blocked: 1, closed: 17, deferred: 0, total: 21 },
+          issues: [
+            { id: "spruce-grove-desktop-qp4", title: "Containment + receipts", status: "in_progress", priority: 2, issue_type: "feature", updated_at: "2026-09-23T00:00:00Z" },
+            { id: "spruce-grove-desktop-o5l", title: "Jev vs Laya", status: "open", priority: 2, issue_type: "task", updated_at: "2026-09-23T00:00:00Z" },
+          ],
+          docs: [
+            { path: "GOVERNANCE.md", label: "governance", present: true },
+            { path: "PLAN.md", label: "plan", present: true },
+            { path: "BRAND.md", label: "brand", present: false },
+          ] };
+      }
       if (cmd === "grove_open_url" || cmd === "grove_open_path") return undefined;
       if (cmd === "grove_diagnostics") {
         return { app_version: "0.1.0", os: "macOS 27.0 (26A428)", arch: "arm64", pid: 4242,
@@ -566,6 +596,41 @@ def main() -> int:
                 "() => window.__calls.some(c => c.cmd === 'grove_open_path' && (c.args.path||'') === '/data')",
                 timeout=4000,
             )
+
+            # -- 14b. self-audit + action ledger (containment + receipts) ----
+            page.wait_for_function(
+                "() => (document.getElementById('diag-floor').textContent || '').includes('INTACT')",
+                timeout=4000,
+            )
+            if "4/4 directives" not in (page.text_content("#diag-floor") or ""):
+                failures.append("self-audit floor missing hardening count")
+            if "read_file" not in (page.text_content("#diag-ledger") or ""):
+                failures.append("action ledger tail missing recorded entry")
+            # a tool call during the turn was recorded to the ledger
+            if not page.evaluate("() => (window.__ledger || []).some(e => e.kind === 'tool')"):
+                failures.append("tool call was not written to the action ledger")
+
+            # -- 14c. core project view: beads tracker + governance docs -----
+            page.click(".insp-tab[data-tab='project']")
+            page.wait_for_function(
+                "() => (document.getElementById('proj-counts').textContent || '').includes('bd list')",
+                timeout=4000,
+            )
+            proj_text = page.text_content("#proj-issues") or ""
+            if "Containment + receipts" not in proj_text:
+                failures.append(f"project tracker missing issue: {proj_text!r}")
+            if "in_progress" not in proj_text:
+                failures.append("project tracker missing status label")
+            docs_text = page.text_content("#proj-docs") or ""
+            if "governance" not in docs_text or "GOVERNANCE.md" not in docs_text:
+                failures.append(f"project docs missing governance entry: {docs_text!r}")
+            # a present doc is clickable and opens the path
+            page.click("#proj-docs .proj-doc")
+            page.wait_for_function(
+                "() => window.__calls.some(c => c.cmd === 'grove_open_path' && (c.args.path||'').includes('GOVERNANCE.md'))",
+                timeout=4000,
+            )
+
             # close the drawer again
             page.click("#insp-close")
             page.wait_for_function(
@@ -606,9 +671,11 @@ def main() -> int:
                 if a11y.get(key) != want:
                     failures.append(f"a11y {key}: expected {want!r}, got {a11y.get(key)!r}")
             # the drawer remembers the last tab, so assert the structure:
-            # a tablist, two role=tab children, exactly one selected, panes
-            if (not a11y["tablist"] or a11y["tabs"] != ["tab", "tab"]
-                    or a11y["selectedCount"] != 1 or a11y["panes"] != ["tabpanel", "tabpanel"]):
+            # a tablist, three role=tab children (repo/project/diagnostics),
+            # exactly one selected, three role=tabpanel panes
+            if (not a11y["tablist"] or a11y["tabs"] != ["tab", "tab", "tab"]
+                    or a11y["selectedCount"] != 1
+                    or a11y["panes"] != ["tabpanel", "tabpanel", "tabpanel"]):
                 failures.append(f"a11y inspector tablist broken: {a11y}")
             # dialog focus management: focus moves into the dialog on open
             # and returns to the invoker on close
@@ -632,7 +699,7 @@ def main() -> int:
             page.keyboard.press("ArrowRight")
             page.wait_for_function(
                 "() => [...document.querySelectorAll('.insp-tab')]"
-                ".some(t => t.getAttribute('aria-selected') === 'true' && t.dataset.tab === 'diag')",
+                ".some(t => t.getAttribute('aria-selected') === 'true' && t.dataset.tab === 'project')",
                 timeout=4000,
             )
             page.click("#insp-close")

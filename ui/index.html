@@ -87,6 +87,7 @@
             <span class="insp-title">inspector</span>
             <div class="insp-tabs" role="tablist" aria-label="inspector panes">
               <button class="insp-tab active" data-tab="repo" role="tab" aria-selected="true" aria-controls="insp-pane-repo">repo</button>
+              <button class="insp-tab" data-tab="project" role="tab" aria-selected="false" aria-controls="insp-pane-project" tabindex="-1">project</button>
               <button class="insp-tab" data-tab="diag" role="tab" aria-selected="false" aria-controls="insp-pane-diag" tabindex="-1">diagnostics</button>
             </div>
             <span id="insp-updated" class="insp-updated" title="last refresh"></span>
@@ -117,6 +118,21 @@
                 <div id="insp-turns" class="insp-list"></div>
               </section>
             </div>
+            <div id="insp-pane-project" class="insp-pane hidden" role="tabpanel" aria-label="project tracker and governance">
+              <section class="insp-sec">
+                <div class="side-label">core project</div>
+                <div id="proj-cwd" class="insp-branch" title="working directory"></div>
+                <div id="proj-counts" class="insp-kv"></div>
+              </section>
+              <section class="insp-sec">
+                <div class="side-label">tracker · beads (direct read)</div>
+                <div id="proj-issues" class="insp-list"></div>
+              </section>
+              <section class="insp-sec">
+                <div class="side-label">governance &amp; plan</div>
+                <div id="proj-docs" class="insp-list"></div>
+              </section>
+            </div>
             <div id="insp-pane-diag" class="insp-pane hidden" role="tabpanel" aria-label="diagnostics">
               <section class="insp-sec">
                 <div class="side-label">platform</div>
@@ -129,6 +145,12 @@
               <section class="insp-sec">
                 <div class="side-label">analytics</div>
                 <div id="diag-analytics" class="insp-kv"></div>
+              </section>
+              <section class="insp-sec">
+                <div class="side-label">self-audit · the floor</div>
+                <div id="diag-floor" class="insp-kv"></div>
+                <div class="side-label sub">agent action ledger (receipts)</div>
+                <div id="diag-ledger" class="insp-list"></div>
               </section>
               <section class="insp-sec">
                 <div class="side-label">errors (this session)</div>

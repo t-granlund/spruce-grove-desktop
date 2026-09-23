@@ -49,6 +49,7 @@ const state = { busy: false, resumeFlag: false, pendingSteer: null };
 const acp = {
   ready: false, sessionId: null, model: null, cwd: null,
   turnActive: false, firstPrompt: null, lastEventAt: 0,
+  ledgerSeen: new Set(), // tool-call ids already written to the action ledger
 };
 const toolEls = new Map();
 let sessions = [];
@@ -610,7 +611,13 @@ els.inspector.addEventListener("click", (ev) => {
   else if (t.dataset.path) invoke("grove_open_path", { path: t.dataset.path }).catch(() => {});
 });
 els.inspectorToggle.addEventListener("click", () => toggleInspector());
-els.inspRefresh.addEventListener("click", () => loadInspector());
+els.inspRefresh.addEventListener("click", () => {
+  loadInspector();
+  // refresh whichever non-default panes are the ones on screen
+  const active = document.querySelector(".insp-tab.active");
+  if (active?.dataset.tab === "project") refreshProject();
+  if (active?.dataset.tab === "diag") refreshDiag();
+});
 els.inspClose.addEventListener("click", () => toggleInspector(false));
 document.addEventListener("keydown", (ev) => {
   if ((ev.metaKey || ev.ctrlKey) && ev.key.toLowerCase() === "i" && !ev.shiftKey) {
@@ -695,6 +702,132 @@ function renderDiag(d) {
 async function refreshDiag() {
   try { renderDiag(await invoke("grove_diagnostics")); }
   catch (err) { noteError("diagnostics", err); }
+  refreshAudit();
+}
+
+/* ---- self-audit + action ledger: the containment + receipts surface ---- */
+
+function renderAudit(a) {
+  const floor = document.getElementById("diag-floor");
+  if (!floor || !a) return;
+  floor.textContent = "";
+  floor.append(
+    kvRow("floor", a.floor_intact ? "INTACT" : "LOWERED"),
+    kvRow("csp hardening", (a.required_hardening || []).length - (a.missing_hardening || []).length
+      + "/" + (a.required_hardening || []).length + " directives"),
+    kvRow("capability window", (a.capability && a.capability.windows || []).join(", ") || "—"),
+    kvRow("capability perms", ((a.capability && a.capability.permissions) || []).join(", ") || "—"),
+  );
+  if (a.missing_hardening && a.missing_hardening.length) {
+    floor.append(kvRow("missing", a.missing_hardening.join("; ")));
+  }
+}
+
+async function refreshAudit() {
+  try { renderAudit(await invoke("grove_self_audit")); }
+  catch (err) { noteError("self-audit", err); }
+  try {
+    const led = await invoke("grove_ledger_tail", { limit: 60 });
+    renderLedger(led);
+  } catch (err) { noteError("ledger", err); }
+}
+
+function renderLedger(led) {
+  const box = document.getElementById("diag-ledger");
+  if (!box) return;
+  box.textContent = "";
+  const entries = (led && led.entries) || [];
+  if (!entries.length) {
+    box.appendChild(el2("div", "insp-empty", "no actions recorded yet"));
+    return;
+  }
+  // newest first — the tail reversed for reading
+  for (const e of entries.slice().reverse()) {
+    const row = el2("div", "insp-row");
+    row.append(
+      el2("span", "insp-meta", String(e.at || "").replace("T", " ").replace("Z", "")),
+      el2("span", "insp-hash", e.kind || ""),
+      el2("span", "insp-main", (e.summary || "") + (e.outcome ? " · " + e.outcome : "")),
+    );
+    box.appendChild(row);
+  }
+}
+
+/* Records one action to the ledger. Best-effort: never block the action it
+   describes, never surface a ledger failure as a run failure. */
+function recordAction(kind, summary, outcome) {
+  const cwd = (acp && acp.cwd) || state.cwd || "";
+  invoke("grove_ledger_record", { kind, cwd, summary: String(summary).slice(0, 240), outcome })
+    .catch(() => {});
+}
+
+/* ---- core project view: the directory's own tracker + governance ---- */
+
+function renderProject(p) {
+  const cwd = document.getElementById("proj-cwd");
+  const counts = document.getElementById("proj-counts");
+  const issues = document.getElementById("proj-issues");
+  const docs = document.getElementById("proj-docs");
+  if (!cwd) return;
+  cwd.textContent = p.cwd || (acp && acp.cwd) || state.cwd || "—";
+  counts.textContent = "";
+  issues.textContent = "";
+  docs.textContent = "";
+
+  if (!p.is_beads) {
+    counts.appendChild(el2("div", "insp-empty", p.note || "not a bead store"));
+    return;
+  }
+  if (!p.bd_found || p.ok === false) {
+    counts.appendChild(el2("div", "insp-empty", p.note || "bd unavailable"));
+    return;
+  }
+  const c = p.counts || {};
+  counts.append(
+    kvRow("in progress", c.in_progress ?? 0),
+    kvRow("blocked", c.blocked ?? 0),
+    kvRow("open", c.open ?? 0),
+    kvRow("closed", c.closed ?? 0),
+    kvRow("total", c.total ?? 0),
+    kvRow("source", "bd list · beads default db"),
+  );
+
+  const rankClass = (s) => s === "in_progress" ? "run" : s === "blocked" ? "bad" : s === "closed" ? "ok" : "idle";
+  for (const it of (p.issues || [])) {
+    const row = el2("div", "insp-row");
+    row.append(
+      el2("span", "insp-meta " + rankClass(it.status), it.status || ""),
+      el2("span", "insp-hash", "P" + (it.priority ?? "?")),
+      el2("span", "insp-main", (it.id ? it.id.replace(/^.*-/, "") + " · " : "") + (it.title || "")),
+    );
+    row.title = it.id || "";
+    issues.appendChild(row);
+  }
+  if (!(p.issues || []).length) issues.appendChild(el2("div", "insp-empty", "tracker empty"));
+
+  for (const d of (p.docs || [])) {
+    const row = el2("div", "insp-row");
+    const open = el2("span", "insp-main", d.label + "  " + d.path);
+    if (d.present) {
+      open.classList.add("proj-doc");
+      open.title = "open in default app";
+      open.addEventListener("click", () => {
+        const base = (acp && acp.cwd) || state.cwd || "";
+        invoke("grove_open_path", { path: base.replace(/\/$/, "") + "/" + d.path })
+          .catch((err) => noteError("open doc", err));
+      });
+    } else {
+      open.classList.add("insp-empty");
+    }
+    row.append(el2("span", "insp-hash", d.present ? "open" : "absent"), open);
+    docs.appendChild(row);
+  }
+}
+
+async function refreshProject() {
+  const cwd = (acp && acp.cwd) || state.cwd || "";
+  try { renderProject(await invoke("grove_project_state", { cwd })); }
+  catch (err) { noteError("project", err); }
 }
 
 document.getElementById("diag-copy").addEventListener("click", () => {
@@ -730,7 +863,9 @@ function selectInspTab(tab) {
     t.tabIndex = t === tab ? 0 : -1;
   });
   document.getElementById("insp-pane-repo").classList.toggle("hidden", tab.dataset.tab !== "repo");
+  document.getElementById("insp-pane-project").classList.toggle("hidden", tab.dataset.tab !== "project");
   document.getElementById("insp-pane-diag").classList.toggle("hidden", tab.dataset.tab !== "diag");
+  if (tab.dataset.tab === "project") refreshProject();
   if (tab.dataset.tab === "diag") refreshDiag();
 }
 
@@ -979,14 +1114,23 @@ async function handleAcpEvent(event) {
       if (data && data.update) {
         acpToolCard(data.update);
         handleToolForLookin(data.update);
+        // receipt: record once the card first appears, not on every update
+        const u = data.update;
+        const key = u.toolCallId || u.title || "";
+        if (key && !acp.ledgerSeen.has(key)) {
+          acp.ledgerSeen.add(key);
+          recordAction("tool", u.title || u.kind || "tool", u.status || "pending");
+        }
       }
       break;
     case "permission":
       if (data && data.params) {
-        const line = addMessage("permission", "permission · auto-allowed");
-        line.textContent = String(
+        const title = String(
           (data.params.toolCall && data.params.toolCall.title) || data.params.toolCall || ""
         ).slice(0, 160);
+        const line = addMessage("permission", "permission · auto-allowed");
+        line.textContent = title;
+        recordAction("permission", title || "permission request", "auto-allowed");
       }
       break;
     case "error":
@@ -1207,11 +1351,13 @@ async function cancelRun() {
       addInterruption("canceled", "turn canceled — the CLI was told to stop; history is kept.");
     }
     invoke("grove_acp_cancel", { sessionId: acp.sessionId }).catch(() => {});
+    recordAction("cancel", acp.turnActive ? "canceled live turn" : "cancel no-op", "requested");
     return;
   }
   if (state.busy) {
     addInterruption("canceled", "run canceled.");
   }
+  recordAction("cancel", "canceled run", "requested");
   invoke("grove_cancel").catch(() => {});
 }
 

@@ -13,7 +13,10 @@ use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, State};
 
 mod acp;
+mod audit;
 mod inspector;
+mod ledger;
+mod project;
 
 struct ActiveRun(Mutex<Option<Child>>);
 
@@ -498,7 +501,11 @@ fn main() {
             inspector::grove_settings_set,
             inspector::grove_note_error,
             inspector::grove_repo_access,
-            inspector::grove_diagnostics
+            inspector::grove_diagnostics,
+            ledger::grove_ledger_record,
+            ledger::grove_ledger_tail,
+            project::grove_project_state,
+            audit::grove_self_audit
         ])
         .run(tauri::generate_context!())
         .expect("error while running spruce-grove desktop");

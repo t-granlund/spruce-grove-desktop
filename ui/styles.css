@@ -427,6 +427,13 @@ div.insp-row { cursor: default; }
 .insp-empty {
   font-family: var(--mono); font-size: 10.5px; color: var(--text-faint); padding: 4px 8px;
 }
+/* project view: status-tinted tracker labels + openable governance docs */
+.insp-meta.run { color: var(--cedar); }
+.insp-meta.bad { color: var(--err); }
+.insp-meta.ok { color: var(--glow); }
+.insp-meta.idle { color: var(--text-faint); }
+.insp-main.proj-doc { cursor: pointer; color: var(--text-dim); }
+.insp-main.proj-doc:hover { color: var(--cedar); text-decoration: underline; }
 
 /* ============================ look-in ============================= */
 .lookin {
