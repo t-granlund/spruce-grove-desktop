@@ -8,21 +8,22 @@ setup - no server, no build, no network. It works offline from `file://`.
 ## Walk it
 
 - **Arrow keys** (or Space / click) advance. **Home / End** jump to the ends.
-- **12 slides.** Two of them embed the *real app*, live.
+- **14 slides.** Three of them run live embeds.
 
 ## Play with the live demo
 
-Slides 5 ("Watch it work") and 7 ("The receipts, on demand") show the actual
-`ui/` front-end running against a canned bridge - the same bridge the test
-suite uses. It is genuinely interactive: type a prompt, press send, watch
-thinking / tool calls / tokens stream in. Open the inspector with Ctrl-Cmd-I.
+- **Slide 6 "Watch it work"** and **slide 9 "The receipts, on demand"** show the actual
+  `ui/` front-end running against a canned bridge - the same bridge the test suite uses.
+  It is genuinely interactive: type a prompt, press send, watch thinking / tool calls /
+  tokens stream in. Open the inspector with Ctrl-Cmd-I.
+- **Slide 8 "Same engine, no shell"** shows the engine *headless* - a terminal replay of a
+  real session's shape (labelled `REPLAY` on purpose; the live CLI is the real demo).
 
-- **Click into the app to play.** While you are playing, arrow keys drive the
-  app, not the deck (that is intended).
-- **Click "return to slides"** (under the app) to hand the keyboard back to the
-  deck and keep walking.
-- The app keeps its state across slides - wander off and come back and your
-  session is still there.
+- **Click into a demo to play.** While you are playing, arrow keys drive the embed, not the
+  deck (that is intended).
+- **Click "return to slides"** (under the embed) to hand the keyboard back to the deck.
+- The app keeps its state across slides - wander off and come back and your session is
+  still there.
 
 ## If the embedded app looks blank
 
@@ -50,4 +51,16 @@ if the deck's embed works, the app's UI works.
 ## The companion brief
 
 `handoff/research-brief.md` - sourced intel on the room (R4, Hermes, the
-Sizzle vocabulary, the Fourth Turning), with every unverified claim flagged.
+Sizzle vocabulary, the Fourth Turning), the **Apple Retail / Ron Johnson mission
+spine**, and every unverified claim flagged. Section 10 logs **Jev/Laya** as a
+parked thread - do not present it until the source resurfaces.
+
+## Honesty notes (say these if asked)
+
+- The desktop embed is the **real UI** on a **canned bridge** - real front-end,
+  fake backend. Say so; it is more impressive, not less.
+- The CLI slide is a **replay of a session's shape**, not a recording. The live
+  CLI is the demo.
+- The Apple Retail frameworks (`feel/felt/found`, `acknowledge/align/assure`,
+  `fearless feedback`, One-to-One) are **Tyler's firsthand curriculum**, not
+  quoted Apple doctrine. Attribute them to him.

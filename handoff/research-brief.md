@@ -148,3 +148,47 @@ We can say that sentence in their own words and it will land.
    search; confirm spelling/source before they appear on a slide.
 5. Broken `web-retriever` subagent (CLI v1.0.65 `ToolContext` ImportError) — fix or just
    work around? (blocks re-running live people research)
+
+---
+
+## 9. The Apple Retail lineage (Tyler's own background) — the mission spine
+
+This is the bridge between who built this and what this is. It is also the honest answer to
+"why should we believe you can do this?"
+
+### Ron Johnson — **[VERIFIED]** (Wikipedia, MacRumors 2026-09-18, AppleInsider 2026-09-22)
+- Ron Johnson: **VP of merchandising at Target**, then **SVP of retail operations at Apple**
+  where he **developed the concept of the Apple Retail Stores *and the Genius Bar***; later
+  CEO of JCPenney and founder of Enjoy Technology.
+- He started at Apple **Feb 1, 2000**; the first two stores opened **May 2001**. A full-scale
+  store was mocked up in a Cupertino warehouse before a single store opened.
+- **His new book:** ***Shop Different: How Retail Revealed Apple's Genius***, with **Zander
+  Nethercutt** — released **Tuesday, September 22, 2026**. That is *this week*. It is a live,
+  current reference the room may well have seen.
+- **Why it matters here:** Johnson's core insight was that a store is not a shelf — it is a
+  *place where a person is understood*. The Genius Bar existed to **diagnose the person, not
+  just the product**. That is the same instinct as "meet people where they are."
+
+### The training frameworks — **[FIRSTHAND: Tyler]**
+Tyler trained thousands of Apple Retail employees (internal promotions and external hires)
+across iOS + macOS hardware/software troubleshooting theory, customer service, and best
+practices — in a small-footprint store (Oakbrook, pre-relocation) and made it work.
+He names the lead-learning principles he taught and still runs professional interactions by:
+- **"Feel, felt, found"** — empathic acknowledgment before any advice.
+- **"Acknowledge, align, assure"** — the service/recovery arc.
+- **"Fearless feedback"** — direct, kind, no-politics critique.
+- **One-to-One membership training** — the paid, human, hands-on teaching model Apple
+  pioneered; teaching as a product, not a cost center.
+*These specific wordings are Tyler's lived curriculum. Search engines could not corroborate
+the exact phrasing this session, so the deck attributes them to him — not to Apple as
+published doctrine.* That is both honest and more credible.
+
+**The through-line:** Apple Retail under Johnson proved that **the human in front of you is
+the product**. Tyler ran that playbook at scale. Spruce Grove is that same playbook, applied
+to a machine: it *listens first, shows its work, and never pretends to know something it
+doesn't.*
+
+## 10. Parked / not to be presented
+- **Jev (cloud) vs Laya (local):** Tyler raised this and could not recall the source the next
+  morning. Nothing on disk, nothing verifiable. **Do not invent it into the deck.** If the
+  source surfaces, the natural home is the "why local / sovereign AI" slide.

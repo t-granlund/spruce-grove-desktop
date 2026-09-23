@@ -47,11 +47,12 @@
   .cmp td:first-child{color:var(--ink);font-weight:600;white-space:nowrap}
   .cmp tr.us td{background:rgba(111,169,122,.10)}
   .cmp tr.us td:first-child{color:var(--moss)}
-  #demo-layer{position:fixed;left:50%;top:40vh;transform:translateX(-50%);width:min(1080px,92vw);
+  #demo-layer,#cli-layer{position:fixed;left:50%;top:40vh;transform:translateX(-50%);width:min(1080px,92vw);
     display:none;flex-direction:column;align-items:center;z-index:60}
-  #demo-layer.on{display:flex}
+  #demo-layer.on,#cli-layer.on{display:flex}
   .stage{width:100%;height:min(520px,52vh);border:1px solid var(--line);
     border-radius:12px;overflow:hidden;background:#0b0f0c;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+  #cli-layer .stage{height:min(400px,42vh)}
   .stage iframe{width:100%;height:100%;border:0;display:block;background:#0b0f0c}
   .stage:empty::after{content:'loading the live app...';display:flex;align-items:center;justify-content:center;
     height:100%;font-family:var(--mono);font-size:12px;letter-spacing:.2em;color:var(--faint);text-transform:uppercase}
@@ -66,7 +67,7 @@
 <body>
 <div id="grain" aria-hidden="true"></div>
 <div class="era">EST - MMXXVI</div>
-<div class="count" id="count">1 / 12</div>
+<div class="count" id="count">1 / 14</div>
 
 <section class="slide on">
   <img class="mark" src="../ui/assets-mark.svg" onerror="this.style.display='none'">
@@ -124,6 +125,26 @@
   <div class="stamp">the wedge - a swappable engine with a watched, tested floor</div>
 </section>
 
+<section class="slide">
+  <p class="kick">why believe us</p>
+  <h2>The customer is the product</h2>
+  <p class="dek">Ron Johnson built the Apple Store and the Genius Bar on one idea: a store is not a shelf,
+  it is a place where a <b>person</b> is understood. The Genius Bar existed to diagnose the person, not just
+  the device. Tyler ran that playbook - training thousands of Apple Retail employees across iOS and macOS
+  troubleshooting theory, customer service, and best practice - and made it work in a small-footprint store
+  long before it was easy. <b>Spruce Grove is that same playbook, pointed at a machine.</b></p>
+  <div class="cols">
+    <div class="col"><div class="k">feel - felt - found</div><p>Acknowledge the human before the fix.
+    The agent listens first and mirrors back your goal before it touches a file.</p></div>
+    <div class="col"><div class="k">acknowledge - align - assure</div><p>The service arc: name the problem,
+    agree on the plan, then prove it landed. That is literally the streaming turn.</p></div>
+    <div class="col"><div class="k">fearless feedback</div><p>Direct, kind, no politics. The build fails
+    loudly on drift - the machine gives itself the same feedback.</p></div>
+    <div class="col"><div class="k">one-to-one</div><p>Teaching as a product, not a cost center. The council
+    is the One-to-One table, with an index card that travels.</p></div>
+  </div>
+</section>
+
 <section class="slide demo" data-demo>
   <p class="kick">live - the shell</p>
   <h2>Watch it work</h2>
@@ -144,6 +165,13 @@
     <div class="col"><div class="k">inspect everything</div><p>One keypress: branch, commits, dirty tree,
     pull requests, CI - read live from <code>git</code> and <code>gh</code>, not a cached dashboard.</p></div>
   </div>
+</section>
+
+<section class="slide demo" data-cli>
+  <p class="kick">live - the engine</p>
+  <h2>Same engine, no shell</h2>
+  <p class="dek" style="max-width:46em;font-size:1.02em">The desktop is one face. The engine also runs
+  headless - in a terminal, in CI, in ACP behind another client. One harness, many doors.</p>
 </section>
 
 <section class="slide demo" data-demo>
@@ -219,37 +247,56 @@
 
 <div id="demo-layer" aria-hidden="true">
   <div class="stage" id="demo-stage"></div>
-  <div class="cap"><button class="demo-exit">return to slides</button>
+  <div class="cap"><button class="demo-exit" data-exit="demo">return to slides</button>
     <span class="demo-hint">click the app to play - return here to resume</span></div>
+</div>
+
+<div id="cli-layer" aria-hidden="true">
+  <div class="stage" id="cli-stage"></div>
+  <div class="cap"><button class="demo-exit" data-exit="cli">return to slides</button>
+    <span class="demo-hint">the engine, headless - replay loops on its own</span></div>
 </div>
 
 <script>
   var slides=document.querySelectorAll('.slide'), i=0;
   var count=document.getElementById('count');
-  var layer=document.getElementById('demo-layer');
-  var stage=document.getElementById('demo-stage');
-  var frame=document.createElement('iframe');
-  frame.id='app-frame';
-  frame.title='Spruce Grove - live interactive demo (canned bridge)';
-  stage.appendChild(frame);      // mounted once, never moved -> never reloads
-  frame.addEventListener('load',function(){
-    // the embedded app focuses its own input on boot; hand the keyboard back to
-    // the deck so arrow keys keep walking slides until the presenter clicks in
-    try{frame.blur();}catch(e){}
-    document.body.setAttribute('tabindex','-1');
-    document.body.focus();
-  });
-  var loaded=false;
+
+  // each demo lives in ONE fixed layer, mounted once and never moved, so the
+  // embedded document never reloads and keeps its state across the deck
+  function makeLayer(layerId, stageId, attr, src, title){
+    var layer=document.getElementById(layerId);
+    var stage=document.getElementById(stageId);
+    var frame=document.createElement('iframe');
+    frame.title=title;
+    stage.appendChild(frame);
+    frame.addEventListener('load',function(){
+      // embedded apps focus their own inputs on boot; hand the keyboard back to
+      // the deck so arrow keys keep walking slides until the presenter clicks in
+      try{frame.blur();}catch(e){}
+      document.body.setAttribute('tabindex','-1');
+      document.body.focus();
+    });
+    return {layer:layer, stage:stage, frame:frame, attr:attr, src:src, loaded:false};
+  }
+  var demos=[
+    makeLayer('demo-layer','demo-stage','data-demo','showcase.html',
+              'Spruce Grove - live interactive demo (canned bridge)'),
+    makeLayer('cli-layer','cli-stage','data-cli','cli-showcase.html',
+              'Spruce Grove - CLI replay')
+  ];
 
   function go(n){
     if(slides[i]) slides[i].classList.remove('on');
     i=Math.max(0,Math.min(slides.length-1,n));
-    slides[i].classList.add('on');
+    var s=slides[i];
+    s.classList.add('on');
     count.textContent=(i+1)+' / '+slides.length;
-    var show=slides[i].hasAttribute('data-demo');
-    if(show && !loaded){ frame.src='showcase.html'; loaded=true; }
-    if(!show){ try{frame.blur();}catch(e){} }
-    layer.classList.toggle('on', show);
+    demos.forEach(function(d){
+      var show=s.hasAttribute(d.attr);
+      if(show && !d.loaded){ d.frame.src=d.src; d.loaded=true; }
+      if(!show){ try{d.frame.blur();}catch(e){} }
+      d.layer.classList.toggle('on', show);
+    });
   }
   document.addEventListener('keydown',function(e){
     if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown')go(i+1);
@@ -260,11 +307,13 @@
     if(e.target.closest('a')||e.target.closest('.demo-exit')||e.target.closest('iframe'))return;
     go(i+1);
   });
-  var exit=document.querySelector('.demo-exit');
-  exit.addEventListener('click',function(ev){
-    ev.stopPropagation();
-    try{frame.blur();}catch(e){}
-    exit.focus();
+  document.querySelectorAll('.demo-exit').forEach(function(btn){
+    btn.addEventListener('click',function(ev){
+      ev.stopPropagation();
+      var d=demos.filter(function(x){return x.layer.querySelector('.demo-exit')===btn;})[0];
+      if(d){ try{d.frame.blur();}catch(e){} }
+      btn.focus();
+    });
   });
   go(0);
 </script>

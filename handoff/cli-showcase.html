@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spruce Grove - CLI replay</title>
+<link rel="stylesheet" href="../ui/fonts.css">
+<style>
+  :root{--bg:#0b0f0c;--ink:#EAE4D3;--dim:#C9CFC2;--faint:#7d857d;--cedar:#E4AA71;--moss:#6FA97A;
+    --red:#e06c75;--blue:#7aa2f7;--mono:"JetBrains Mono",monospace}
+  *{box-sizing:border-box;margin:0}
+  html,body{height:100%}
+  body{background:var(--bg);color:var(--ink);font-family:var(--mono);font-size:13px;line-height:1.5;
+    padding:0;display:flex;flex-direction:column}
+  .bar{display:flex;align-items:center;gap:8px;padding:9px 13px;border-bottom:1px solid rgba(234,228,211,.10);
+    background:rgba(234,228,211,.03)}
+  .dot{width:11px;height:11px;border-radius:50%;display:inline-block}
+  .bar .t{margin-left:8px;color:var(--faint);font-size:11px;letter-spacing:.08em}
+  .bar .replay{margin-left:auto;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--cedar);
+    border:1px solid rgba(228,170,113,.4);border-radius:10px;padding:2px 9px}
+  .term{flex:1;overflow:hidden;padding:14px 16px}
+  .ln{white-space:pre-wrap;word-break:break-word}
+  .ps1{color:var(--moss)} .cmd{color:var(--ink)}
+  .think{color:var(--faint)} .tool{color:var(--blue)} .ok{color:var(--moss)}
+  .warn{color:var(--cedar)} .ans{color:var(--ink)} .shot{color:var(--red)}
+  .caret{display:inline-block;width:8px;height:15px;background:var(--cedar);vertical-align:-2px;
+    animation:bl .9s steps(1) infinite}
+  @keyframes bl{50%{opacity:0}}
+  .foot{display:flex;align-items:center;gap:12px;padding:10px 16px;border-top:1px solid rgba(234,228,211,.10)}
+  .foot button{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer;
+    color:var(--ink);background:rgba(234,228,211,.06);border:1px solid rgba(234,228,211,.16);
+    border-radius:16px;padding:6px 13px}
+  .foot button:hover{background:rgba(228,170,113,.16);color:var(--cedar)}
+  .foot .note{font-size:10px;letter-spacing:.1em;color:var(--faint);text-transform:uppercase}
+</style>
+</head>
+<body>
+  <div class="bar">
+    <span class="dot" style="background:#e06c75"></span>
+    <span class="dot" style="background:#e0af68"></span>
+    <span class="dot" style="background:#9ece6a"></span>
+    <span class="t">spruce-grove - harness - ~/dev/spruce-grove-desktop</span>
+    <span class="replay">replay</span>
+  </div>
+  <div class="term" id="term"></div>
+  <div class="foot">
+    <button id="again">run again</button>
+    <span class="note">illustrative replay of a real session's shape - the live CLI is the demo</span>
+  </div>
+<script>
+  // A scripted replay of one real spruce-grove session. Every label here maps to
+  // something the CLI actually emits (thinking / tool_call with status / turn end
+  // with usage). It is a SHAPE, not a recording - labelled "replay" on purpose.
+  var SCRIPT = [
+    {c:"ps", t:"~/dev/spruce-grove-desktop $ ", k:"spruce-grove -p \"add a health check endpoint and wire it into the inspector\""},
+    {c:"think", t:"grove ready - structured live session", d:250},
+    {c:"think", t:"thinking  reading src-tauri/src/main.rs, src-tauri/src/inspector.rs", d:420},
+    {c:"tool",  t:"tool      read_file   src-tauri/src/main.rs                 completed", d:300},
+    {c:"tool",  t:"tool      grep        \"grove_git_state\"                    completed", d:260},
+    {c:"tool",  t:"tool      edit_file   src-tauri/src/main.rs   +14 -1        completed", d:340},
+    {c:"tool",  t:"tool      edit_file   ui/main.js              +4 -0         completed", d:280},
+    {c:"tool",  t:"tool      shell       cargo test                            running", d:500},
+    {c:"ok",    t:"tool      shell       cargo test                16 passed     completed", d:420},
+    {c:"ans",   t:"answer    Health check added and surfaced in the inspector.", d:300},
+    {c:"ans",   t:"          tests 16/16 - diff +18 -1 - files 2 - tokens 4,321", d:220}
+  ];
+  var term = document.getElementById('term');
+  var timers = [];
+  function esc(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+  function clear(){ timers.forEach(clearTimeout); timers=[]; term.innerHTML=''; }
+  function run(){
+    clear();
+    var acc = 0;
+    var line = document.createElement('div'); line.className='ln'; term.appendChild(line);
+    var ps = document.createElement('span'); ps.className='ps1'; ps.textContent=SCRIPT[0].t;
+    var c  = document.createElement('span'); c.className='cmd'; c.textContent=SCRIPT[0].k;
+    line.appendChild(ps); line.appendChild(c);
+    acc = 700;
+    for (var i=1;i<SCRIPT.length;i++){
+      (function(s){
+        timers.push(setTimeout(function(){
+          var d=document.createElement('div'); d.className='ln '+s.c; d.textContent=s.t;
+          term.appendChild(d);
+        }, acc));
+      })(SCRIPT[i]);
+      acc += (SCRIPT[i].d||300);
+    }
+    timers.push(setTimeout(function(){
+      var d=document.createElement('div'); d.className='ln';
+      d.innerHTML='<span class="ps1">~/dev/spruce-grove-desktop $ </span><span class="caret"></span>';
+      term.appendChild(d);
+    }, acc+250));
+  }
+  document.getElementById('again').addEventListener('click', run);
+  run();
+</script>
+</body>
+</html>
