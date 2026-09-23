@@ -63,6 +63,20 @@
     padding:8px 15px;cursor:pointer}
   .demo-exit:hover{background:rgba(228,170,113,.16);color:var(--cedar)}
   .demo-hint{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--faint);text-transform:uppercase}
+
+  /* ---- print / PDF backup: every slide becomes one landscape page ---- */
+  @media print{
+    @page{size:A4 landscape;margin:0}
+    html,body{height:auto;overflow:visible;background:#fff}
+    #grain,.era,.count,.hint,#demo-layer,#cli-layer,#receipts-layer,script{display:none!important}
+    .slide{position:relative;inset:auto;display:flex!important;height:100vh;page-break-after:always;
+      break-after:page;padding:40px 56px}
+    .slide:last-of-type{page-break-after:auto;break-after:auto}
+    .slide.demo{justify-content:center;padding-top:40px}
+    /* a demo slide can't embed live in print - leave a labeled placeholder */
+    .slide.demo::after{content:'[ live demo - see screen recording ]';font-family:var(--mono);
+      font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:#8A938A;margin-top:18px}
+  }
 </style>
 </head>
 <body>

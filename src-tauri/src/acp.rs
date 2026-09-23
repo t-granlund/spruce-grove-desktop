@@ -63,12 +63,26 @@ impl Drop for AcpConnection {
 // Pure functions first: the contract tests live on these.
 
 /// Parse one ndjson line into a JSON-RPC message, if it is one.
+///
+/// The CLI emits terminal color escapes on stdout during boot (observed:
+/// ~256 bytes of OSC sequences) and, crucially, writes them on the *same*
+/// physical line as the first JSON-RPC message. A raw `from_str` therefore
+/// fails on the very first handshake line and the client never sees
+/// `initialize`. We strip ANSI first, then also tolerate any stray prefix by
+/// slicing from the first `{` — either guard alone would fix today's bug;
+/// both make the seam robust to the next color-mode change.
 pub fn parse_line(line: &str) -> Option<Value> {
-    let trimmed = line.trim();
+    let cleaned = crate::strip_ansi(line);
+    let trimmed = cleaned.trim();
     if trimmed.is_empty() {
         return None;
     }
-    serde_json::from_str(trimmed).ok()
+    if let Ok(v) = serde_json::from_str(trimmed) {
+        return Some(v);
+    }
+    // Last resort: a noisier prefix survived stripping — take the JSON tail.
+    let start = trimmed.find('{')?;
+    serde_json::from_str(&trimmed[start..]).ok()
 }
 
 /// Classify an incoming message for the router.
@@ -631,5 +645,30 @@ mod tests {
         assert!(parse_line("").is_none());
         assert!(parse_line("not json at all").is_none());
         assert!(parse_line("{\"jsonrpc\":\"2.0\",\"method\":\"x\"}").is_some());
+    }
+
+    /// The real-world boot line: the CLI writes OSC color escapes and then the
+    /// first JSON-RPC message on the SAME physical line. `from_str` alone fails
+    /// here, which silently killed the ACP handshake against the real binary.
+    /// Captured verbatim from `spruce-grove --acp` on 2026-09-23.
+    #[test]
+    fn parse_line_survives_osc_prefix_from_real_cli() {
+        let prefix = "\u{1b}]11;#1a1b26\u{7}\u{1b}]10;#c0caf5\u{7}\u{1b}]4;0;#15161e\u{7}";
+        let json = "{\"jsonrpc\":\"2.0\",\"id\":1,\"result\":{\"protocolVersion\":1}}";
+        let line = format!("{prefix}{json}");
+        let msg = parse_line(&line).expect("OSC-prefixed line must parse");
+        assert_eq!(msg.get("id").and_then(|v| v.as_u64()), Some(1));
+        assert_eq!(
+            msg.get("result").and_then(|r| r.get("protocolVersion")).and_then(|v| v.as_u64()),
+            Some(1)
+        );
+    }
+
+    /// A CSI sequence (e.g. `ESC [ 0 m`) contains a bracket, which is exactly
+    /// why slicing from the first `{` is not enough on its own — strip first.
+    #[test]
+    fn parse_line_strips_csi_then_parses() {
+        let line = "\u{1b}[32m\u{1b}[0m{\"jsonrpc\":\"2.0\",\"method\":\"session/update\"}";
+        assert!(parse_line(line).is_some());
     }
 }

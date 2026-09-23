@@ -81,7 +81,7 @@ fn cli_command() -> (String, Vec<String>) {
 
 /// Strip ANSI escape sequences so the webview renders plain text.
 /// Handles CSI (`ESC [ ... final-byte`) and OSC (`ESC ] ... BEL | ESC \`).
-fn strip_ansi(input: &str) -> String {
+pub(crate) fn strip_ansi(input: &str) -> String {
     let mut out = String::with_capacity(input.len());
     let mut chars = input.chars();
     while let Some(c) = chars.next() {
