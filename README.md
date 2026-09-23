@@ -29,6 +29,11 @@ CLI rather than re-implementing the harness, so the fork's diff does not grow.
   `grove_save_recording` → `spruce-grove --transcribe` (local whisper rig) →
   editable prompt. Remaining acceptance: one human mic click in the real
   .app (the WKWebView grant cannot be automated — TEST-MAP).
+- [x] **Running now**: the sidebar lists every grove session open on this
+  machine, straight from `spruce-grove --console --json` -- title, working
+  directory, pid, age, and a mint dot for a live terminal (an orphan left
+  by a closed window goes amber). Click one to attach to that exact
+  session; the shell never guesses at process state itself.
 - [x] ACP live sessions (`spruce-grove --acp`): structured chunks, thinking,
   tool cards with status chips, per-turn usage, mid-run steering, and
   session resume across process death (`session/load`).

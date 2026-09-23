@@ -37,6 +37,8 @@ const els = {
   inspRefresh: document.getElementById("insp-refresh"),
   inspClose: document.getElementById("insp-close"),
   sessionList: document.getElementById("session-list"),
+  liveList: document.getElementById("live-list"),
+  liveCount: document.getElementById("live-count"),
   dirList: document.getElementById("dir-list"),
   newChat: document.getElementById("new-chat"),
   sidebar: document.getElementById("sidebar"),
@@ -92,6 +94,98 @@ function dropSession(id) {
 
 function sessionsForDir(cwd) {
   return sessions.filter((s) => s.cwd === cwd);
+}
+
+/* ===================== live sessions (from the CLI) ================= */
+/* The shell does not inspect processes itself -- `grove_console_sessions`
+   forwards `spruce-grove --console --json`, so this list and the `/console`
+   panel can never disagree about what is running. */
+
+let liveSessions = [];
+let liveTimer = null;
+
+function ageLabel(seconds) {
+  if (seconds == null) return "?";
+  if (seconds < 3600) return Math.floor(seconds / 60) + "m";
+  if (seconds < 86400) return Math.floor(seconds / 3600) + "h";
+  return Math.floor(seconds / 86400) + "d";
+}
+
+async function refreshLiveSessions() {
+  try {
+    liveSessions = await invoke("grove_console_sessions");
+  } catch {
+    // A CLI that cannot answer must not empty the sidebar of history --
+    // just show that we could not see, rather than showing "nothing".
+    liveSessions = null;
+  }
+  renderLive();
+}
+
+function renderLive() {
+  const list = els.liveList;
+  const count = els.liveCount;
+  if (!list) return;
+  list.innerHTML = "";
+
+  if (liveSessions === null) {
+    count.textContent = "";
+    list.appendChild(el2("div", "s-meta live-empty", "view unavailable"));
+    return;
+  }
+  count.textContent = liveSessions.length ? String(liveSessions.length) : "";
+  if (!liveSessions.length) {
+    list.appendChild(el2("div", "s-meta live-empty", "none"));
+    return;
+  }
+
+  for (const s of liveSessions) {
+    const item = el2("div", "sess-item live-item" + (s.terminal_open ? "" : " orphan"));
+    item.setAttribute("role", "button");
+    item.tabIndex = 0;
+    item.title = [
+      "pid " + s.pid,
+      s.tty || "piped",
+      s.cwd || "",
+      s.session_name || "(unidentified session)",
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    item.appendChild(el2("span", "s-title", s.title || "unidentified session"));
+    item.appendChild(
+      el2(
+        "span",
+        "s-meta",
+        (s.terminal_open ? "" : "orphan · ") +
+          baseName(s.cwd) +
+          " · pid " +
+          s.pid +
+          " · " +
+          ageLabel(s.uptime_seconds)
+      )
+    );
+
+    // Attaching can only happen for a session we can name, and only when the
+    // shell is idle -- one conversation at a time, as elsewhere.
+    if (s.session_name && s.cwd) {
+      item.addEventListener("click", () => {
+        if (acp.ready && acp.turnActive) return;
+        els.cwd.value = s.cwd;
+        upsertSession(s.session_name, s.cwd, s.title || "session");
+        renderSidebar();
+        startAcp(s.cwd, s.session_name);
+      });
+    }
+    list.appendChild(item);
+  }
+}
+
+function startLivePolling() {
+  refreshLiveSessions();
+  if (liveTimer) clearInterval(liveTimer);
+  // Slow enough to be free, fast enough to feel live.
+  liveTimer = setInterval(refreshLiveSessions, 5000);
 }
 
 function relTime(ts) {
@@ -603,6 +697,23 @@ function toggleInspector(force) {
   localStorage.setItem("grove.inspector", inspectorOpen ? "1" : "");
   if (inspectorOpen) loadInspector();
 }
+
+/* Deck hook: the presentation (or any embedder) can ask the app to open the
+   receipts — inspector on a given pane — by posting a message. Inert in the
+   packaged app, where nothing posts it. Lets a live demo land on the project
+   tracker / self-audit surfaces without the presenter hunting for ⌘I. */
+window.addEventListener("message", (ev) => {
+  const d = ev && ev.data;
+  if (!d) return;
+  if (d.type === "grove-show-receipts") {
+    toggleInspector(true);
+    const tab = d.tab === "project" ? "project" : "diag";
+    const el = document.querySelector(".insp-tab[data-tab='" + tab + "']");
+    if (el) selectInspTab(el);
+  } else if (d.type === "grove-hide-receipts") {
+    toggleInspector(false);
+  }
+});
 
 els.inspector.addEventListener("click", (ev) => {
   const t = ev.target.closest("[data-url],[data-path]");
@@ -1664,6 +1775,9 @@ async function initCwd() {
 }
 
 loadSessions();
+// The running-session list comes from the CLI, so it is independent of the
+// settings/ACP boot chain: show it as soon as we can ask, and keep asking.
+startLivePolling();
 loadSettings()
   .then(() => {
     // the drawer remembers being open (session memory), and settings can

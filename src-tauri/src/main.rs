@@ -163,6 +163,40 @@ fn grove_version() -> Result<String, String> {
     }
 }
 
+/// Which grove sessions are open on this machine, as the CLI sees them.
+///
+/// The shell deliberately does **not** reimplement process inspection: the
+/// CLI owns the definition of a live session (an open terminal that has not
+/// been closed out) and the knowledge of which saved session each one maps
+/// to. This forwards `--console --json` so the sidebar and the `/console`
+/// panel can never disagree.
+///
+/// Returns the parsed array directly (not a JSON string) so the webview gets
+/// objects without a second decode.
+#[tauri::command]
+fn grove_console_sessions() -> Result<serde_json::Value, String> {
+    let (program, prefix) = cli_command();
+    let output = Command::new(&program)
+        .args(&prefix)
+        .arg("--console")
+        .arg("--json")
+        .output()
+        .map_err(|e| format!("cannot launch {program}: {e}"))?;
+    if !output.status.success() {
+        return Err(format!(
+            "console query failed (stderr: {})",
+            String::from_utf8_lossy(&output.stderr).trim()
+        ));
+    }
+    // The grove emits terminal colour sequences during import, so the JSON is
+    // not the whole of stdout. Strip escapes BEFORE locating the array: an
+    // OSC sequence happens to be bracket-free, but a CSI one (`ESC [ 0 m`) is
+    // not, and `find('[')` would then split a colour code in half.
+    let text = strip_ansi(&String::from_utf8_lossy(&output.stdout));
+    let start = text.find('[').ok_or("console output had no JSON array")?;
+    serde_json::from_str(&text[start..]).map_err(|e| format!("bad console JSON: {e}"))
+}
+
 /// Pump a child stream to the webview, one event per line.
 fn spawn_reader<R>(app: AppHandle, reader: R, tag: &'static str)
 where
@@ -481,6 +515,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             grove_default_cwd,
             grove_shell_profile,
+            grove_console_sessions,
             grove_version,
             grove_send,
             grove_cancel,

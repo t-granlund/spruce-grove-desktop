@@ -82,6 +82,29 @@ window.__TAURI__ = {
       window.__calls.push({ cmd, args });
       if (cmd === "grove_version") return "spruce-grove 1.0.0";
       if (cmd === "grove_default_cwd") return "/tmp/sg-dogfood";
+      if (cmd === "grove_console_sessions") {
+        // Two live terminals plus one orphan, in the CLI's --console --json
+        // shape. Set window.__liveSessions = null to simulate a CLI that
+        // cannot answer at all.
+        if (window.__liveSessions === null) throw new Error("console unavailable");
+        if (window.__liveSessions) return window.__liveSessions;
+        return [
+          { pid: 100, ppid: 99, tty: "ttys001", terminal_open: true,
+            kind: "terminal", session_name: "auto_session_20260922_180404_125317_100",
+            title: "Desktop App QA Round Two", subtitle: null, agent_name: "code-puppy",
+            cwd: "/tmp/sg-dogfood", message_count: 362, total_tokens: 259523,
+            last_autosave: "2026-09-23T13:30:23", uptime_seconds: 3600, is_live: true },
+          { pid: 200, ppid: 199, tty: "ttys003", terminal_open: true,
+            kind: "terminal", session_name: "auto_session_20260922_201559_223288_200",
+            title: "Arvest Statement Import", subtitle: null, agent_name: null,
+            cwd: "/tmp/sg-dogfood/proj-a", message_count: 156, total_tokens: 100,
+            last_autosave: "2026-09-23T13:00:00", uptime_seconds: 7200, is_live: true },
+          { pid: 300, ppid: 299, tty: "ttys009", terminal_open: false,
+            kind: "terminal", session_name: null, title: null, subtitle: null,
+            agent_name: null, cwd: null, message_count: null, total_tokens: null,
+            last_autosave: null, uptime_seconds: 90000, is_live: false },
+        ];
+      }
       if (cmd === "grove_list_dirs") {
         const tree = {
           "/tmp/sg-dogfood": ["proj-a", "proj-b", "zeta-lab"],
@@ -435,6 +458,70 @@ def main() -> int:
                 failures.append(f"session title missing from sidebar: {s_titles!r}")
             if "sg-dogfood" not in (page.text_content("#dir-list") or ""):
                 failures.append("directory chip missing from sidebar")
+
+            # -- 7b. running-now panel (sourced from the CLI) --------------
+            # It must reflect what the CLI reports, including the orphan,
+            # rather than any local guess about what is running.
+            page.wait_for_function(
+                "() => document.querySelectorAll('#live-list .live-item').length === 3",
+                timeout=8000,
+            )
+            live_text = page.text_content("#live-list") or ""
+            if "Desktop App QA Round Two" not in live_text:
+                failures.append(f"live session title missing: {live_text!r}")
+            if "pid 100" not in live_text:
+                failures.append(f"live session pid missing: {live_text!r}")
+            if "1h" not in live_text:
+                failures.append(f"live session age missing: {live_text!r}")
+            if (page.text_content("#live-count") or "").strip() != "3":
+                failures.append(
+                    "live count wrong: " + repr(page.text_content("#live-count"))
+                )
+            orphans = page.evaluate(
+                "() => document.querySelectorAll('#live-list .live-item.orphan').length"
+            )
+            if orphans != 1:
+                failures.append(f"orphan not marked: {orphans} flagged, expected 1")
+            if "orphan" not in (page.text_content("#live-list") or ""):
+                failures.append("orphan session not labelled")
+
+            # clicking a named live session attaches to *that* session
+            page.evaluate(
+                "() => [...document.querySelectorAll('#live-list .live-item')]"
+                ".find(n => n.textContent.includes('Arvest Statement Import')).click()"
+            )
+            page.wait_for_function(
+                "() => window.__calls.some(c => c.cmd === 'grove_acp_start'"
+                " && c.args.resume === 'auto_session_20260922_201559_223288_200')",
+                timeout=8000,
+            )
+            attached = [
+                c for c in window_calls(page)
+                if c["cmd"] == "grove_acp_start"
+                and c["args"].get("resume") == "auto_session_20260922_201559_223288_200"
+            ]
+            if attached[0]["args"]["cwd"] != "/tmp/sg-dogfood/proj-a":
+                failures.append(
+                    f"attach used wrong cwd: {attached[0]['args']['cwd']!r}"
+                )
+            # Attaching moved the working directory; put it back so later
+            # steps (the dir picker seeds from the cwd) see what they expect.
+            page.evaluate("() => { document.getElementById('cwd').value = '/tmp/sg-dogfood'; }")
+
+            # -- 7c. an unreachable CLI must not claim "none running" ------
+            page.evaluate("() => { window.__liveSessions = null; }")
+            page.evaluate("() => refreshLiveSessions()")
+            page.wait_for_function(
+                "() => (document.getElementById('live-list').textContent || '')"
+                ".includes('view unavailable')",
+                timeout=8000,
+            )
+            unavailable = page.text_content("#live-list") or ""
+            if "none" in unavailable:
+                failures.append(
+                    "unreachable CLI reported as 'none' instead of unavailable"
+                )
+            page.evaluate("() => { window.__liveSessions = undefined; }")
 
             # -- 8. sidebar collapse / restore -----------------------------
             page.click("#sidebar-toggle")

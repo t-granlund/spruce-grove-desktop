@@ -110,6 +110,24 @@ body {
 .sess-item:hover .s-del, .sess-item .s-del:focus-visible { opacity: 1; }
 .sess-item .s-del:hover { color: var(--err); background: rgba(217, 138, 106, 0.12); }
 
+/* Running sessions, sourced from `spruce-grove --console --json`. A mint dot
+   marks "this terminal is still open"; an orphan (window closed, process
+   left behind) goes quiet and amber-flagged instead of looking ordinary. */
+.live-count {
+  margin-left: 4px; padding: 0 5px; border-radius: 8px;
+  background: var(--bg-card); color: var(--mint);
+  font-size: 9px; letter-spacing: 0;
+}
+.live-item { padding-left: 20px; }
+.live-item::before {
+  content: ""; position: absolute; left: 8px; top: 13px;
+  width: 6px; height: 6px; border-radius: 50%;
+  background: var(--mint);
+}
+.live-item.orphan::before { background: var(--warn, #d9a06a); }
+.live-item.orphan .s-title { color: var(--text-faint); }
+.live-empty { padding: 4px 6px; }
+
 .dir-list { display: flex; flex-direction: column; gap: 3px; }
 .dir-item {
   text-align: left; cursor: pointer; background: transparent;
