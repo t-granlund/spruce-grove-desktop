@@ -11,3 +11,6 @@ dist/
 
 # Session log dumps (the spruce-grove CLI writes these to cwd)
 LATESTLog*.txt
+
+# macOS
+.DS_Store
