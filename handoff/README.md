@@ -5,6 +5,27 @@
 Double-click `handoff/triton-ventures.html` (any browser). That is the whole
 setup - no server, no build, no network. It works offline from `file://`.
 
+## Sending the demo as a packet
+
+`handoff/showcase.html` is a demo of the real `ui/` front-end, so it pulls in
+six sibling files (`../ui/*.css`, `../ui/*.js`). **Sending it alone delivers a
+broken page** - no styling, no interactivity.
+
+Use `handoff/showcase-standalone.html` instead: the same deck with every asset
+inlined, so one file is genuinely enough. Regenerate it after any `ui/` change:
+
+```
+python3 handoff/build_self_contained.py          # write it
+python3 handoff/build_self_contained.py --check  # fail if out of date
+```
+
+Verified by loading it in a browser with the network fully blocked: three
+stylesheets applied, composer wired, zero page errors.
+
+**The passcode is a gate, not encryption** - it ships in the same folder as the
+packet, so rotate it before any send (`data/showcase-passcode.txt` in the
+OUTREACH repo).
+
 ## Walk it
 
 - **Arrow keys** (or Space / click) advance. **Home / End** jump to the ends.
