@@ -16,6 +16,7 @@ mod acp;
 mod audit;
 mod inspector;
 mod ledger;
+mod recordings;
 mod project;
 
 struct ActiveRun(Mutex<Option<Child>>);
@@ -544,7 +545,16 @@ fn main() {
             ledger::grove_ledger_record,
             ledger::grove_ledger_tail,
             project::grove_project_state,
-            audit::grove_self_audit
+            audit::grove_self_audit,
+            recordings::grove_library_takes,
+            recordings::grove_recordings_list,
+            recordings::grove_recording_get,
+            recordings::grove_recording_audio,
+            recordings::grove_recording_patch,
+            recordings::grove_recording_drop,
+            recordings::grove_recording_drop_take,
+            recordings::grove_recording_splice,
+            recordings::grove_recording_export
         ])
         .run(tauri::generate_context!())
         .expect("error while running spruce-grove desktop");

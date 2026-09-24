@@ -72,6 +72,7 @@ def cap_guard(failures):
 
 MOCK = r"""
 window.__calls = [];
+window.__library = {};
 window.__acpHandler = null;
 window.__turnCount = 0;
 window.__turnTimers = [];
@@ -117,6 +118,79 @@ window.__TAURI__ = {
         return { path: args.path, parent, dirs, total: dirs.length };
       }
       if (cmd === "grove_save_recording") return "/tmp/mock-dictation.webm";
+
+      // ---- the recording library (studio) ------------------------------
+      // A faithful in-memory stand-in: takes append, order is explicit,
+      // lock is enforced, and splice renumbers. Mirrors recordings.rs.
+      if (cmd === "grove_library_takes") {
+        const id = args.recordingId || "rec-mock";
+        let rec = window.__library[id];
+        if (!rec) {
+          rec = { id, name: "mock recording", created_ms: 1, updated_ms: 1,
+                  summary: "", locked: false, takes: [] };
+          window.__library[id] = rec;
+        }
+        rec.takes.push({ file: "take-" + String(rec.takes.length).padStart(3, "0") + ".webm",
+                         mime: args.mime || "audio/webm", created_ms: 1,
+                         duration_s: args.durationS || 0,
+                         transcript: args.transcript || "" });
+        rec.updated_ms++;
+        return JSON.parse(JSON.stringify(rec));
+      }
+      if (cmd === "grove_recordings_list") {
+        return Object.values(window.__library).map(r => JSON.parse(JSON.stringify(r)));
+      }
+      if (cmd === "grove_recording_get") {
+        const rec = window.__library[args.id];
+        if (!rec) throw new Error("no recording " + args.id);
+        return JSON.parse(JSON.stringify(rec));
+      }
+      if (cmd === "grove_recording_audio") {
+        // a tiny valid WAV so the player/waveform path is exercised
+        if (args.file !== "final.wav") throw new Error("no master yet");
+        const rec = window.__library[args.id];
+        if (!rec || !rec.master) throw new Error("no master yet");
+        return rec.masterBytes || [82, 73, 70, 70];
+      }
+      if (cmd === "grove_recording_patch") {
+        const rec = window.__library[args.id];
+        if (!rec) throw new Error("no recording " + args.id);
+        if (rec.locked && args.locked !== false) throw new Error("locked");
+        if (args.name) rec.name = args.name;
+        if (args.summary !== undefined) rec.summary = args.summary;
+        if (args.locked !== undefined) rec.locked = args.locked;
+        if (args.takeIndex !== undefined && args.transcript !== undefined) {
+          rec.takes[args.takeIndex].transcript = args.transcript;
+        }
+        rec.updated_ms++;
+        return JSON.parse(JSON.stringify(rec));
+      }
+      if (cmd === "grove_recording_drop_take") {
+        const rec = window.__library[args.id];
+        if (!rec) throw new Error("no recording " + args.id);
+        if (rec.locked) throw new Error("locked");
+        rec.takes.splice(args.takeIndex, 1);
+        return JSON.parse(JSON.stringify(rec));
+      }
+      if (cmd === "grove_recording_splice") {
+        const rec = window.__library[args.id];
+        if (!rec) throw new Error("no recording " + args.id);
+        if (rec.locked) throw new Error("locked");
+        if (args.order.length !== rec.takes.length) throw new Error("order length mismatch");
+        const byOld = rec.takes.slice();
+        rec.takes = args.order.map((i, slot) => {
+          const t = Object.assign({}, byOld[i]);
+          t.file = "take-" + String(slot).padStart(3, "0") + ".webm";
+          return t;
+        });
+        rec.master = true;
+        rec.masterBytes = [82, 73, 70, 70];
+        rec.updated_ms++;
+        return JSON.parse(JSON.stringify(rec));
+      }
+      if (cmd === "grove_recording_export") {
+        return "/tmp/mock-export.md";
+      }
       if (cmd === "grove_transcribe") {
         if (!args.file) throw new Error("no file given");
         return "Launch the desktop dictation loop: record, review, send.";
@@ -759,6 +833,84 @@ def main() -> int:
                 timeout=4000,
             )
 
+            # -- 14e. studio: record -> takes -> edit -> reorder -> lock ---
+            # Record two takes through the real mic path FIRST (the composer is
+            # behind the overlay, exactly as a user would meet it), then open
+            # the studio to edit what was captured.
+            # Start from an empty library so the counts below are deterministic;
+            # the earlier dictation section deliberately leaves a take behind.
+            page.evaluate("() => { window.__library = {}; }")
+            page.evaluate("() => { document.getElementById('prompt').value = ''; }")
+            for _ in range(2):
+                page.click("#mic"); page.wait_for_timeout(250)
+                page.click("#mic"); page.wait_for_timeout(900)
+
+            lib = page.evaluate("() => Object.values(window.__library)[0]")
+            if not lib:
+                failures.append("studio: no recording was created by dictation")
+            else:
+                if len(lib["takes"]) != 2:
+                    failures.append(f"studio: expected 2 takes, got {len(lib['takes'])}")
+                # open the studio: the list shows the session we just recorded
+                page.click("#studio-toggle")
+                page.wait_for_selector("#studio-overlay:not(.hidden)", timeout=4000)
+                page.wait_for_timeout(300)
+                rows = page.eval_on_selector_all("#studio-recordings .studio-row", "els => els.length")
+                if rows < 1:
+                    failures.append("studio: recording list is empty after recording")
+                page.click("#studio-recordings .studio-row")
+                page.wait_for_selector("#studio-open:not(.hidden)", timeout=4000)
+                page.wait_for_timeout(300)
+
+            takes_shown = page.eval_on_selector_all("#studio-takes .take", "els => els.length")
+            if takes_shown != 2:
+                failures.append(f"studio: {takes_shown} take cards shown, expected 2")
+
+            # edit a transcript in place (blur commits it)
+            page.eval_on_selector("#studio-takes .take textarea",
+                                  "el => { el.value = 'edited take one'; el.dispatchEvent(new Event('blur')); }")
+            page.wait_for_timeout(400)
+            edited = page.evaluate("() => Object.values(window.__library)[0].takes[0].transcript")
+            if edited != "edited take one":
+                failures.append(f"studio: transcript edit did not persist ({edited!r})")
+
+            # reorder, then splice
+            page.eval_on_selector_all("#studio-takes .take .take-btn",
+                                      "els => els[1].click()")  # move take 1 later
+            page.wait_for_timeout(200)
+            page.click("#studio-splice")
+            page.wait_for_timeout(600)
+            spliced = page.evaluate("() => Object.values(window.__library)[0]")
+            if not spliced.get("master"):
+                failures.append("studio: splice did not write a master")
+            files = [t["file"] for t in spliced["takes"]]
+            if files != ["take-000.webm", "take-001.webm"]:
+                failures.append(f"studio: splice did not renumber takes ({files})")
+
+            # lock the record, then edits must be refused
+            page.click("#studio-lock-btn")
+            page.wait_for_timeout(500)
+            locked = page.evaluate("() => Object.values(window.__library)[0].locked")
+            if not locked:
+                failures.append("studio: lock did not stick")
+            disabled = page.evaluate(
+                "() => document.getElementById('studio-summary').disabled")
+            if not disabled:
+                failures.append("studio: summary should be read-only once locked")
+            # an edit attempt through the bridge must raise
+            refused = page.evaluate("""async () => {
+              try { await window.__TAURI__.core.invoke('grove_recording_patch',
+                    { id: Object.keys(window.__library)[0], name: 'nope' }); return false; }
+              catch (e) { return true; }
+            }""")
+            if not refused:
+                failures.append("studio: locked recording accepted an edit")
+
+            page.click("#studio-close")
+            page.wait_for_timeout(200)
+            if not page.evaluate("() => document.getElementById('studio-overlay').classList.contains('hidden')"):
+                failures.append("studio: close did not hide the panel")
+
             # -- 15. accessibility pack: labels, live regions, tabs, focus --
             a11y = page.evaluate("""() => {
               const q = (s) => document.querySelector(s);
@@ -875,7 +1027,9 @@ def main() -> int:
         for f in failures:
             print(" -", f)
         return 1
-    print("PASS: streaming + dictation + steering + cancel + look-in + sidebar + picker + inspector + settings/diagnostics + a11y + narrow-window, all green")
+    print("PASS: streaming + dictation + studio (takes/edit/reorder/splice/lock) + steering + "
+          "cancel + look-in + sidebar + picker + inspector + settings/diagnostics + a11y + "
+          "narrow-window, all green")
     return 0
 
 

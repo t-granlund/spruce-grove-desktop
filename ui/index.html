@@ -61,6 +61,7 @@
           </label>
           <button id="lookin" class="btn ghost" title="Live browser look-in: screenshots and actions as the agent works"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 8s2.4-4.2 6.5-4.2S14.5 8 14.5 8s-2.4 4.2-6.5 4.2S1.5 8 1.5 8Z" stroke="currentColor" stroke-width="1.4" fill="none"/><circle cx="8" cy="8" r="1.9" stroke="currentColor" stroke-width="1.4" fill="none"/></svg><span class="lbl">look-in</span></button>
           <button id="inspector-toggle" class="btn ghost" title="Inspector: repository state, live GitHub, session turns (⌘I)"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.8" y="2.5" width="12.4" height="11" rx="1.6" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M10.2 2.5v11" stroke="currentColor" stroke-width="1.4"/></svg><span class="lbl">inspector</span></button>
+          <button id="studio-toggle" class="btn ghost" title="Studio: play, edit, splice and lock your recordings"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.2 5.5v5M5.4 3.2v9.6M8 5.5v5M10.6 2.6v10.8M13.8 6.2v3.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"/></svg><span class="lbl">studio</span></button>
         </header>
 
         <section id="transcript" class="transcript" role="log" aria-live="off" aria-label="conversation transcript">
@@ -229,7 +230,55 @@
         </div>
       </div>
     </div>
+    <!-- ============================ studio ==============================
+         The recording library: a session of takes you can play, edit,
+         reorder (splice), and finally lock into a committed overview. -->
+    <div id="studio-overlay" class="studio-overlay hidden" role="dialog" aria-modal="true" aria-label="recording studio">
+      <div class="studio">
+        <header class="studio-head">
+          <span class="studio-title">studio</span>
+          <span class="studio-hint">takes in order · play, edit, splice, then lock the record</span>
+          <button class="pk-close" id="studio-close" title="close (esc)">&times;</button>
+        </header>
+        <div class="studio-body">
+          <aside class="studio-list">
+            <div class="side-label">recordings</div>
+            <div id="studio-recordings" class="studio-recordings"></div>
+          </aside>
+          <section class="studio-main">
+            <div id="studio-empty" class="studio-empty">No recording open. Hit <b>record</b> in the composer, or pick one on the left.</div>
+            <div id="studio-open" class="studio-open hidden">
+              <div class="studio-meta">
+                <input id="studio-name" class="studio-name" type="text" spellcheck="false" aria-label="recording name">
+                <span id="studio-lock" class="studio-lock"></span>
+              </div>
+              <div id="studio-player" class="studio-player">
+                <button id="studio-play" class="btn ghost" aria-label="play the spliced recording">play</button>
+                <span id="studio-time" class="studio-time">0:00 / 0:00</span>
+                <input id="studio-seek" class="studio-seek" type="range" min="0" max="1000" value="0" aria-label="seek">
+                <span id="studio-dur" class="studio-dur"></span>
+              </div>
+              <div id="studio-wave" class="studio-wave" aria-hidden="true"></div>
+              <div class="side-label">takes <span id="studio-count" class="studio-count"></span></div>
+              <div id="studio-takes" class="studio-takes"></div>
+              <div class="studio-actions">
+                <button id="studio-splice" class="btn ghost" title="stitch the takes into one master, in the order shown">splice to master</button>
+                <button id="studio-export" class="btn ghost">export markdown</button>
+                <button id="studio-lock-btn" class="btn solid">lock the record</button>
+              </div>
+              <div class="side-label">summary <span class="studio-count">the committed overview</span></div>
+              <textarea id="studio-summary" class="studio-summary" rows="4" placeholder="What did this conversation commit to?"></textarea>
+            </div>
+          </section>
+        </div>
+        <div class="pk-foot">
+          <span class="pk-status" id="studio-status"></span>
+          <button class="btn ghost" id="studio-record-more">record another take</button>
+        </div>
+      </div>
+    </div>
     <script src="picker.js"></script>
+    <script src="studio.js"></script>
     <script src="main.js"></script>
   </body>
 </html>

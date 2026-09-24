@@ -611,3 +611,104 @@ body::before {
   /* icons carry the buttons now; labels return above 560px */
   .topbar .btn .lbl, .field .lbl { display: none; }
 }
+
+/* ==================================================================
+   Studio — the recording library. Sits beside the inspector: one
+   editing session per row, takes in order, play/splice/lock.
+   ================================================================== */
+.studio-overlay {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(8, 11, 9, .72);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.studio-overlay.hidden { display: none; }
+.studio {
+  width: min(1040px, 100%); max-height: calc(100vh - 48px);
+  display: flex; flex-direction: column;
+  background: var(--panel, #141A15);
+  border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .55);
+  overflow: hidden;
+}
+.studio-head {
+  display: flex; align-items: baseline; gap: 12px;
+  padding: 14px 18px; border-bottom: 1px solid var(--line);
+}
+.studio-title {
+  font-family: var(--mono); letter-spacing: .22em; text-transform: uppercase;
+  font-size: 12px; color: var(--cedar);
+}
+.studio-hint { font-size: 12px; color: var(--faint); flex: 1; }
+.studio-body { display: grid; grid-template-columns: 250px 1fr; min-height: 0; flex: 1; }
+.studio-list {
+  border-right: 1px solid var(--line); padding: 12px 10px;
+  overflow-y: auto; background: rgba(0, 0, 0, .16);
+}
+.studio-recordings { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.studio-row {
+  display: flex; flex-direction: column; gap: 2px; text-align: left;
+  background: none; border: 1px solid transparent; border-radius: 8px;
+  padding: 8px 10px; cursor: pointer; color: var(--text, #EAE4D3);
+}
+.studio-row:hover { background: rgba(234, 228, 211, .06); }
+.studio-row.on { border-color: var(--cedar); background: rgba(228, 170, 113, .1); }
+.sr-name { font-size: 13px; }
+.sr-meta { font-family: var(--mono); font-size: 10.5px; color: var(--faint); }
+.studio-main { padding: 16px 18px; overflow-y: auto; min-height: 0; }
+.studio-empty, .studio-note { color: var(--faint); font-size: 13px; }
+/* there is no global `.hidden` in this stylesheet — each component owns its
+   rule, which is exactly how the studio's two panes silently both showed. */
+.studio-empty.hidden, .studio-open.hidden { display: none; }
+.studio-meta { display: flex; align-items: center; gap: 12px; }
+.studio-name {
+  flex: 1; background: rgba(0, 0, 0, .25); border: 1px solid var(--line);
+  border-radius: 8px; padding: 7px 10px; color: inherit; font-size: 15px;
+}
+.studio-lock {
+  font-family: var(--mono); font-size: 10.5px; color: var(--faint);
+  text-transform: uppercase; letter-spacing: .1em;
+}
+.studio-lock[data-state="on"] { color: var(--cedar); }
+.studio-player {
+  display: flex; align-items: center; gap: 12px; margin: 14px 0 8px;
+}
+.studio-time { font-family: var(--mono); font-size: 12px; color: var(--dim); min-width: 96px; }
+.studio-seek { flex: 1; accent-color: var(--cedar); }
+.studio-dur { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+.studio-wave { margin: 6px 0 14px; min-height: 64px; }
+.studio-canvas { width: 100%; height: 64px; border-radius: 6px; display: block; }
+.studio-count { font-family: var(--mono); font-size: 10.5px; color: var(--faint); text-transform: none; letter-spacing: 0; }
+.studio-takes { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 12px; }
+.take {
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 10px; background: rgba(0, 0, 0, .18);
+}
+.take-head { display: flex; align-items: center; gap: 8px; }
+.take-num { font-family: var(--mono); font-size: 11px; color: var(--cedar); }
+.take-dur { font-family: var(--mono); font-size: 10.5px; color: var(--faint); }
+.take-spacer { flex: 1; }
+.take-btn {
+  background: none; border: 1px solid var(--line); border-radius: 6px;
+  color: var(--dim); cursor: pointer; padding: 1px 7px; font-size: 12px;
+}
+.take-btn:hover:not(:disabled) { border-color: var(--cedar); color: var(--cedar); }
+.take-btn:disabled { opacity: .28; cursor: default; }
+.take-btn.danger:hover { border-color: #c96a5a; color: #c96a5a; }
+.take-text {
+  width: 100%; margin-top: 6px; background: rgba(0, 0, 0, .22);
+  border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;
+  color: inherit; font: inherit; font-size: 13px; resize: vertical;
+}
+.take-text:disabled { opacity: .7; }
+.studio-actions { display: flex; gap: 8px; margin: 6px 0 14px; flex-wrap: wrap; }
+.studio-summary {
+  width: 100%; background: rgba(0, 0, 0, .22); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 10px; color: inherit; font: inherit;
+  font-size: 13px; resize: vertical;
+}
+.studio-summary:disabled { opacity: .7; }
+@media (max-width: 719px) {
+  .studio-body { grid-template-columns: 1fr; }
+  .studio-list { border-right: none; border-bottom: 1px solid var(--line); max-height: 150px; }
+}

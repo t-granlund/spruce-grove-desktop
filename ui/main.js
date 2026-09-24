@@ -1609,7 +1609,14 @@ els.sidebarOpen.addEventListener("click", () => {
 
 /* ============================ dictation =========================== */
 
-const dictation = { recording: false, recorder: null, chunks: [], stream: null };
+const dictation = {
+  recording: false,
+  recorder: null,
+  chunks: [],
+  stream: null,
+  startedAt: 0,
+  lastSeconds: 0,
+};
 
 /* the mic button carries an icon + label now — only the label ever moves */
 function micLabel(text) {
@@ -1662,6 +1669,7 @@ async function toggleDictation() {
   dictation.recorder.onstop = finishDictation;
   dictation.recorder.start();
   dictation.recording = true;
+  dictation.startedAt = Date.now();
   micLabel("stop");
   els.mic.classList.add("rec");
   recChipShow();
@@ -1670,8 +1678,32 @@ async function toggleDictation() {
     : "recording — click stop when the thought is out";
 }
 
+/* The open studio session, if the operator has one. A take recorded while a
+   session is open is appended to it; otherwise the library starts a new one. */
+let activeRecordingId = null;
+
+async function saveTakeToLibrary(bytes, mime, transcript) {
+  try {
+    const rec = await invoke("grove_library_takes", {
+      bytes,
+      mime,
+      durationS: dictation.lastSeconds,
+      transcript: transcript || "",
+      recordingId: activeRecordingId || undefined,
+    });
+    activeRecordingId = rec.id;
+    window.groveStudio?.refresh?.();
+  } catch (err) {
+    // The prompt already has the transcript; the library is a convenience.
+    noteError("studio", err);
+  }
+}
+
 async function finishDictation() {
   dictation.recording = false;
+  dictation.lastSeconds = dictation.startedAt
+    ? (Date.now() - dictation.startedAt) / 1000
+    : 0;
   els.mic.classList.remove("rec");
   micLabel("…");
   els.mic.disabled = true;
@@ -1682,15 +1714,28 @@ async function finishDictation() {
   dictation.recorder = null;
   try {
     const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()));
+    const mime = blob.type || "audio/webm";
     const file = await invoke("grove_save_recording", {
       bytes,
-      mime: blob.type || undefined,
+      mime,
     });
     els.status.textContent = "transcribing on-device (local whisper)...";
-    const text = await invoke("grove_transcribe", { file });
-    els.prompt.value = els.prompt.value ? els.prompt.value + "\n" + text : text;
-    els.status.textContent = "transcript in the prompt — edit it, then send";
-    els.prompt.focus();
+    // The take lands in the studio library whatever the transcript says:
+    // audio you captured is yours, and a failed transcript must not discard it.
+    let text = "";
+    try {
+      text = await invoke("grove_transcribe", { file });
+      els.prompt.value = els.prompt.value ? els.prompt.value + "\n" + text : text;
+      els.status.textContent = "transcript in the prompt — edit it, then send";
+      els.prompt.focus();
+    } catch (terr) {
+      // Be specific and honest: "nothing audible" is a different problem from
+      // "the rig is broken", and the recording is still saved either way.
+      const msg = String(terr).split("\n")[0];
+      els.status.textContent = "saved to studio — " + msg;
+      noteError("dictation", terr);
+    }
+    await saveTakeToLibrary(bytes, mime, text);
   } catch (err) {
     els.status.textContent = "dictation failed: " + String(err).split("\n")[0];
     noteError("dictation", err);
@@ -1701,6 +1746,17 @@ async function finishDictation() {
 }
 
 els.mic.addEventListener("click", toggleDictation);
+
+/* The studio's "record another take" closes the panel and arms the mic; the
+   next take appends to the session that was just open. */
+window.groveRecordMore = () => {
+  activeRecordingId = window.groveStudio?.currentId?.() || activeRecordingId;
+  toggleDictation();
+};
+
+document.getElementById("studio-toggle")?.addEventListener("click", () => {
+  window.groveStudio?.open?.();
+});
 
 /* ======================= workspace shell profile =================== */
 /* A business workspace may carry .spruce_grove/shell.json — the thin layer
