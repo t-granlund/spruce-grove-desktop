@@ -75,10 +75,24 @@ def build() -> str:
     html, css_count = CSS_RE.subn(css_sub, html)
     html, js_count = JS_RE.subn(js_sub, html)
 
-    if css_count != 3 or js_count != 3:
+    # The invariant is not "N assets were inlined" -- that is a number to bump
+    # every time the ui/ grows (it silently rotted when studio.js landed). The
+    # real property is SELF-CONTAINMENT: after substitution, nothing may still
+    # point at ../ui/. Assert *that*, so a new asset is caught only if it was
+    # actually missed, and adding one needs no edit here.
+    leftover = sorted(
+        set(re.findall(r'\.\./ui/[^"\'\s>]+', html))
+    )
+    if leftover:
         raise SystemExit(
-            f"expected to inline 3 stylesheets and 3 scripts, "
-            f"got {css_count} and {js_count} -- the deck's markup changed"
+            "the built deck still references external assets (not "
+            f"self-contained): {', '.join(leftover)} -- the deck's markup "
+            "changed in a way the inliner did not match"
+        )
+    if css_count + js_count == 0:
+        raise SystemExit(
+            "inlined nothing -- the deck's asset markup changed shape and the "
+            "regexes matched no <link>/<script> at all"
         )
     return html
 

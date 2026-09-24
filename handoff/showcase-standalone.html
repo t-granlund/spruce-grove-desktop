@@ -6,6 +6,7 @@
     <title>Spruce Grove - live showcase (mock bridge)</title>
     <script>
 window.__calls = [];
+window.__library = {};
 window.__acpHandler = null;
 window.__turnCount = 0;
 window.__turnTimers = [];
@@ -51,6 +52,79 @@ window.__TAURI__ = {
         return { path: args.path, parent, dirs, total: dirs.length };
       }
       if (cmd === "grove_save_recording") return "/tmp/mock-dictation.webm";
+
+      // ---- the recording library (studio) ------------------------------
+      // A faithful in-memory stand-in: takes append, order is explicit,
+      // lock is enforced, and splice renumbers. Mirrors recordings.rs.
+      if (cmd === "grove_library_takes") {
+        const id = args.recordingId || "rec-mock";
+        let rec = window.__library[id];
+        if (!rec) {
+          rec = { id, name: "mock recording", created_ms: 1, updated_ms: 1,
+                  summary: "", locked: false, takes: [] };
+          window.__library[id] = rec;
+        }
+        rec.takes.push({ file: "take-" + String(rec.takes.length).padStart(3, "0") + ".webm",
+                         mime: args.mime || "audio/webm", created_ms: 1,
+                         duration_s: args.durationS || 0,
+                         transcript: args.transcript || "" });
+        rec.updated_ms++;
+        return JSON.parse(JSON.stringify(rec));
+      }
+      if (cmd === "grove_recordings_list") {
+        return Object.values(window.__library).map(r => JSON.parse(JSON.stringify(r)));
+      }
+      if (cmd === "grove_recording_get") {
+        const rec = window.__library[args.id];
+        if (!rec) throw new Error("no recording " + args.id);
+        return JSON.parse(JSON.stringify(rec));
+      }
+      if (cmd === "grove_recording_audio") {
+        // a tiny valid WAV so the player/waveform path is exercised
+        if (args.file !== "final.wav") throw new Error("no master yet");
+        const rec = window.__library[args.id];
+        if (!rec || !rec.master) throw new Error("no master yet");
+        return rec.masterBytes || [82, 73, 70, 70];
+      }
+      if (cmd === "grove_recording_patch") {
+        const rec = window.__library[args.id];
+        if (!rec) throw new Error("no recording " + args.id);
+        if (rec.locked && args.locked !== false) throw new Error("locked");
+        if (args.name) rec.name = args.name;
+        if (args.summary !== undefined) rec.summary = args.summary;
+        if (args.locked !== undefined) rec.locked = args.locked;
+        if (args.takeIndex !== undefined && args.transcript !== undefined) {
+          rec.takes[args.takeIndex].transcript = args.transcript;
+        }
+        rec.updated_ms++;
+        return JSON.parse(JSON.stringify(rec));
+      }
+      if (cmd === "grove_recording_drop_take") {
+        const rec = window.__library[args.id];
+        if (!rec) throw new Error("no recording " + args.id);
+        if (rec.locked) throw new Error("locked");
+        rec.takes.splice(args.takeIndex, 1);
+        return JSON.parse(JSON.stringify(rec));
+      }
+      if (cmd === "grove_recording_splice") {
+        const rec = window.__library[args.id];
+        if (!rec) throw new Error("no recording " + args.id);
+        if (rec.locked) throw new Error("locked");
+        if (args.order.length !== rec.takes.length) throw new Error("order length mismatch");
+        const byOld = rec.takes.slice();
+        rec.takes = args.order.map((i, slot) => {
+          const t = Object.assign({}, byOld[i]);
+          t.file = "take-" + String(slot).padStart(3, "0") + ".webm";
+          return t;
+        });
+        rec.master = true;
+        rec.masterBytes = [82, 73, 70, 70];
+        rec.updated_ms++;
+        return JSON.parse(JSON.stringify(rec));
+      }
+      if (cmd === "grove_recording_export") {
+        return "/tmp/mock-export.md";
+      }
       if (cmd === "grove_transcribe") {
         if (!args.file) throw new Error("no file given");
         return "Launch the desktop dictation loop: record, review, send.";
@@ -961,6 +1035,107 @@ body::before {
   .topbar .btn .lbl, .field .lbl { display: none; }
 }
 
+/* ==================================================================
+   Studio — the recording library. Sits beside the inspector: one
+   editing session per row, takes in order, play/splice/lock.
+   ================================================================== */
+.studio-overlay {
+  position: fixed; inset: 0; z-index: 60;
+  background: rgba(8, 11, 9, .72);
+  display: flex; align-items: center; justify-content: center;
+  padding: 24px;
+}
+.studio-overlay.hidden { display: none; }
+.studio {
+  width: min(1040px, 100%); max-height: calc(100vh - 48px);
+  display: flex; flex-direction: column;
+  background: var(--panel, #141A15);
+  border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 24px 70px rgba(0, 0, 0, .55);
+  overflow: hidden;
+}
+.studio-head {
+  display: flex; align-items: baseline; gap: 12px;
+  padding: 14px 18px; border-bottom: 1px solid var(--line);
+}
+.studio-title {
+  font-family: var(--mono); letter-spacing: .22em; text-transform: uppercase;
+  font-size: 12px; color: var(--cedar);
+}
+.studio-hint { font-size: 12px; color: var(--faint); flex: 1; }
+.studio-body { display: grid; grid-template-columns: 250px 1fr; min-height: 0; flex: 1; }
+.studio-list {
+  border-right: 1px solid var(--line); padding: 12px 10px;
+  overflow-y: auto; background: rgba(0, 0, 0, .16);
+}
+.studio-recordings { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
+.studio-row {
+  display: flex; flex-direction: column; gap: 2px; text-align: left;
+  background: none; border: 1px solid transparent; border-radius: 8px;
+  padding: 8px 10px; cursor: pointer; color: var(--text, #EAE4D3);
+}
+.studio-row:hover { background: rgba(234, 228, 211, .06); }
+.studio-row.on { border-color: var(--cedar); background: rgba(228, 170, 113, .1); }
+.sr-name { font-size: 13px; }
+.sr-meta { font-family: var(--mono); font-size: 10.5px; color: var(--faint); }
+.studio-main { padding: 16px 18px; overflow-y: auto; min-height: 0; }
+.studio-empty, .studio-note { color: var(--faint); font-size: 13px; }
+/* there is no global `.hidden` in this stylesheet — each component owns its
+   rule, which is exactly how the studio's two panes silently both showed. */
+.studio-empty.hidden, .studio-open.hidden { display: none; }
+.studio-meta { display: flex; align-items: center; gap: 12px; }
+.studio-name {
+  flex: 1; background: rgba(0, 0, 0, .25); border: 1px solid var(--line);
+  border-radius: 8px; padding: 7px 10px; color: inherit; font-size: 15px;
+}
+.studio-lock {
+  font-family: var(--mono); font-size: 10.5px; color: var(--faint);
+  text-transform: uppercase; letter-spacing: .1em;
+}
+.studio-lock[data-state="on"] { color: var(--cedar); }
+.studio-player {
+  display: flex; align-items: center; gap: 12px; margin: 14px 0 8px;
+}
+.studio-time { font-family: var(--mono); font-size: 12px; color: var(--dim); min-width: 96px; }
+.studio-seek { flex: 1; accent-color: var(--cedar); }
+.studio-dur { font-family: var(--mono); font-size: 11px; color: var(--faint); }
+.studio-wave { margin: 6px 0 14px; min-height: 64px; }
+.studio-canvas { width: 100%; height: 64px; border-radius: 6px; display: block; }
+.studio-count { font-family: var(--mono); font-size: 10.5px; color: var(--faint); text-transform: none; letter-spacing: 0; }
+.studio-takes { display: flex; flex-direction: column; gap: 8px; margin: 6px 0 12px; }
+.take {
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 10px; background: rgba(0, 0, 0, .18);
+}
+.take-head { display: flex; align-items: center; gap: 8px; }
+.take-num { font-family: var(--mono); font-size: 11px; color: var(--cedar); }
+.take-dur { font-family: var(--mono); font-size: 10.5px; color: var(--faint); }
+.take-spacer { flex: 1; }
+.take-btn {
+  background: none; border: 1px solid var(--line); border-radius: 6px;
+  color: var(--dim); cursor: pointer; padding: 1px 7px; font-size: 12px;
+}
+.take-btn:hover:not(:disabled) { border-color: var(--cedar); color: var(--cedar); }
+.take-btn:disabled { opacity: .28; cursor: default; }
+.take-btn.danger:hover { border-color: #c96a5a; color: #c96a5a; }
+.take-text {
+  width: 100%; margin-top: 6px; background: rgba(0, 0, 0, .22);
+  border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px;
+  color: inherit; font: inherit; font-size: 13px; resize: vertical;
+}
+.take-text:disabled { opacity: .7; }
+.studio-actions { display: flex; gap: 8px; margin: 6px 0 14px; flex-wrap: wrap; }
+.studio-summary {
+  width: 100%; background: rgba(0, 0, 0, .22); border: 1px solid var(--line);
+  border-radius: 8px; padding: 8px 10px; color: inherit; font: inherit;
+  font-size: 13px; resize: vertical;
+}
+.studio-summary:disabled { opacity: .7; }
+@media (max-width: 719px) {
+  .studio-body { grid-template-columns: 1fr; }
+  .studio-list { border-right: none; border-bottom: 1px solid var(--line); max-height: 150px; }
+}
+
 </style>
 <style>
 /* inlined from ui/gran.css */
@@ -1465,6 +1640,7 @@ textarea:focus {
           </label>
           <button id="lookin" class="btn ghost" title="Live browser look-in: screenshots and actions as the agent works"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M1.5 8s2.4-4.2 6.5-4.2S14.5 8 14.5 8s-2.4 4.2-6.5 4.2S1.5 8 1.5 8Z" stroke="currentColor" stroke-width="1.4" fill="none"/><circle cx="8" cy="8" r="1.9" stroke="currentColor" stroke-width="1.4" fill="none"/></svg><span class="lbl">look-in</span></button>
           <button id="inspector-toggle" class="btn ghost" title="Inspector: repository state, live GitHub, session turns (⌘I)"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><rect x="1.8" y="2.5" width="12.4" height="11" rx="1.6" stroke="currentColor" stroke-width="1.4" fill="none"/><path d="M10.2 2.5v11" stroke="currentColor" stroke-width="1.4"/></svg><span class="lbl">inspector</span></button>
+          <button id="studio-toggle" class="btn ghost" title="Studio: play, edit, splice and lock your recordings"><svg class="ic" viewBox="0 0 16 16" aria-hidden="true"><path d="M2.2 5.5v5M5.4 3.2v9.6M8 5.5v5M10.6 2.6v10.8M13.8 6.2v3.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" fill="none"/></svg><span class="lbl">studio</span></button>
         </header>
 
         <section id="transcript" class="transcript" role="log" aria-live="off" aria-label="conversation transcript">
@@ -1633,6 +1809,53 @@ textarea:focus {
         </div>
       </div>
     </div>
+    <!-- ============================ studio ==============================
+         The recording library: a session of takes you can play, edit,
+         reorder (splice), and finally lock into a committed overview. -->
+    <div id="studio-overlay" class="studio-overlay hidden" role="dialog" aria-modal="true" aria-label="recording studio">
+      <div class="studio">
+        <header class="studio-head">
+          <span class="studio-title">studio</span>
+          <span class="studio-hint">takes in order · play, edit, splice, then lock the record</span>
+          <button class="pk-close" id="studio-close" title="close (esc)">&times;</button>
+        </header>
+        <div class="studio-body">
+          <aside class="studio-list">
+            <div class="side-label">recordings</div>
+            <div id="studio-recordings" class="studio-recordings"></div>
+          </aside>
+          <section class="studio-main">
+            <div id="studio-empty" class="studio-empty">No recording open. Hit <b>record</b> in the composer, or pick one on the left.</div>
+            <div id="studio-open" class="studio-open hidden">
+              <div class="studio-meta">
+                <input id="studio-name" class="studio-name" type="text" spellcheck="false" aria-label="recording name">
+                <span id="studio-lock" class="studio-lock"></span>
+              </div>
+              <div id="studio-player" class="studio-player">
+                <button id="studio-play" class="btn ghost" aria-label="play the spliced recording">play</button>
+                <span id="studio-time" class="studio-time">0:00 / 0:00</span>
+                <input id="studio-seek" class="studio-seek" type="range" min="0" max="1000" value="0" aria-label="seek">
+                <span id="studio-dur" class="studio-dur"></span>
+              </div>
+              <div id="studio-wave" class="studio-wave" aria-hidden="true"></div>
+              <div class="side-label">takes <span id="studio-count" class="studio-count"></span></div>
+              <div id="studio-takes" class="studio-takes"></div>
+              <div class="studio-actions">
+                <button id="studio-splice" class="btn ghost" title="stitch the takes into one master, in the order shown">splice to master</button>
+                <button id="studio-export" class="btn ghost">export markdown</button>
+                <button id="studio-lock-btn" class="btn solid">lock the record</button>
+              </div>
+              <div class="side-label">summary <span class="studio-count">the committed overview</span></div>
+              <textarea id="studio-summary" class="studio-summary" rows="4" placeholder="What did this conversation commit to?"></textarea>
+            </div>
+          </section>
+        </div>
+        <div class="pk-foot">
+          <span class="pk-status" id="studio-status"></span>
+          <button class="btn ghost" id="studio-record-more">record another take</button>
+        </div>
+      </div>
+    </div>
 <script>
 /* inlined from ui/picker.js */
 /* ==================================================================
@@ -1789,6 +2012,445 @@ textarea:focus {
     });
   };
 })();
+
+</script>
+<script>
+/* inlined from ui/studio.js */
+/* ============================================================================
+   studio.js — the recording library.
+
+   One editing session ("recording") is an ordered list of takes. Each take is
+   audio + its transcript. You can play the session, seek, edit a take's text,
+   delete a take, reorder takes and *splice* them into a single master, write a
+   summary, and finally **lock** the record — which is the "committed overview".
+
+   The audio work (storing blobs, stitching PCM) lives in Rust; this file only
+   presents it. Keeping it that way means the studio has no ffmpeg knowledge
+   and the library survives a reload.
+============================================================================ */
+
+const studio = {
+  open: false,
+  rec: null,          // the Recording currently open
+  audio: null,        // the spliced master, as an object URL
+  audioEl: null,
+  busy: false,
+};
+
+const S = (id) => document.getElementById(id);
+
+function studioStatus(text) {
+  const el = S("studio-status");
+  if (el) el.textContent = text || "";
+}
+
+function fmtTime(sec) {
+  if (!isFinite(sec) || sec < 0) return "0:00";
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return m + ":" + String(s).padStart(2, "0");
+}
+
+/* ------------------------------- library -------------------------------- */
+
+async function studioRefresh() {
+  let list = [];
+  try {
+    list = await invoke("grove_recordings_list");
+  } catch (err) {
+    studioStatus("library unavailable: " + String(err).split("\n")[0]);
+    return;
+  }
+  const host = S("studio-recordings");
+  host.textContent = "";
+  if (!list.length) {
+    const p = document.createElement("p");
+    p.className = "studio-note";
+    p.textContent = "Nothing recorded yet.";
+    host.appendChild(p);
+    return;
+  }
+  for (const r of list) {
+    const row = document.createElement("button");
+    row.className = "studio-row" + (studio.rec && studio.rec.id === r.id ? " on" : "");
+    row.dataset.id = r.id;
+    const name = document.createElement("span");
+    name.className = "sr-name";
+    name.textContent = r.name;
+    const meta = document.createElement("span");
+    meta.className = "sr-meta";
+    const secs = r.takes.reduce((a, t) => a + (t.duration_s || 0), 0);
+    meta.textContent =
+      r.takes.length + (r.takes.length === 1 ? " take" : " takes") +
+      " · " + fmtTime(secs) + (r.locked ? " · locked" : "");
+    row.append(name, meta);
+    row.addEventListener("click", () => studioOpen(r.id));
+    host.appendChild(row);
+  }
+}
+
+/* -------------------------------- open ---------------------------------- */
+
+async function studioOpen(id) {
+  if (studio.busy) return;
+  studio.busy = true;
+  studioStatus("opening…");
+  try {
+    studio.rec = await invoke("grove_recording_get", { id });
+    S("studio-empty").classList.add("hidden");
+    S("studio-open").classList.remove("hidden");
+    renderRecording();
+    await loadMaster();
+    await studioRefresh();
+    studioStatus("");
+  } catch (err) {
+    studioStatus("could not open: " + String(err).split("\n")[0]);
+  } finally {
+    studio.busy = false;
+  }
+}
+
+/* Load the spliced master into an <audio>, if one has been written. The blob
+   is decoded via a blob: URL, which the CSP's media-src allows. */
+async function loadMaster() {
+  releaseMaster();
+  if (!studio.rec) return;
+  const hasMaster = studio.rec.takes.length > 0;
+  if (!hasMaster) return;
+  try {
+    const bytes = await invoke("grove_recording_audio", {
+      id: studio.rec.id,
+      file: "final.wav",
+    });
+    const blob = new Blob([new Uint8Array(bytes)], { type: "audio/wav" });
+    studio.audio = URL.createObjectURL(blob);
+    const el = new Audio();
+    el.src = studio.audio;
+    el.preload = "metadata";
+    el.addEventListener("ended", () => setPlayLabel(false));
+    el.addEventListener("timeupdate", () => {
+      if (!el.duration) return;
+      S("studio-time").textContent = fmtTime(el.currentTime) + " / " + fmtTime(el.duration);
+      S("studio-seek").value = String(Math.round((el.currentTime / el.duration) * 1000));
+    });
+    el.addEventListener("loadedmetadata", () => {
+      S("studio-time").textContent = "0:00 / " + fmtTime(el.duration);
+    });
+    studio.audioEl = el;
+    S("studio-dur").textContent = "master spliced";
+  } catch (_) {
+    // no master yet: that is the normal state before the first splice
+    studio.audioEl = null;
+    studio.audio = null;
+    S("studio-dur").textContent = "no master yet — splice to hear the whole session";
+    S("studio-time").textContent = "0:00 / 0:00";
+  }
+  await drawWaveform();
+}
+
+function releaseMaster() {
+  if (studio.audioEl) {
+    try { studio.audioEl.pause(); } catch (_) { /* ignore */ }
+  }
+  if (studio.audio) URL.revokeObjectURL(studio.audio);
+  studio.audioEl = null;
+  studio.audio = null;
+}
+
+function setPlayLabel(playing) {
+  S("studio-play").textContent = playing ? "pause" : "play";
+}
+
+/* ------------------------------- waveform -------------------------------- */
+
+/* Decode the master with the Web Audio API and draw an RMS envelope. This is
+   presentation only — no audio is modified here. */
+async function drawWaveform() {
+  const host = S("studio-wave");
+  host.textContent = "";
+  if (!studio.audio) return;
+  try {
+    const buf = await (await fetch(studio.audio)).arrayBuffer();
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const audio = await ctx.decodeAudioData(buf);
+    const data = audio.getChannelData(0);
+    const W = 640, H = 64, BARS = 96;
+    const canvas = document.createElement("canvas");
+    canvas.width = W; canvas.height = H;
+    canvas.className = "studio-canvas";
+    const g = canvas.getContext("2d");
+    g.fillStyle = "rgba(234,228,211,.10)";
+    g.fillRect(0, 0, W, H);
+    const step = Math.floor(data.length / BARS) || 1;
+    for (let i = 0; i < BARS; i++) {
+      let peak = 0;
+      for (let j = 0; j < step; j++) {
+        const v = Math.abs(data[i * step + j] || 0);
+        if (v > peak) peak = v;
+      }
+      const h = Math.max(2, Math.round(peak * (H - 6)));
+      g.fillStyle = "#E4AA71";
+      g.fillRect(i * (W / BARS) + 1, (H - h) / 2, Math.max(1, W / BARS - 2), h);
+    }
+    host.appendChild(canvas);
+    await ctx.close();
+  } catch (_) {
+    const p = document.createElement("p");
+    p.className = "studio-note";
+    p.textContent = "waveform unavailable (audio could not be decoded)";
+    host.appendChild(p);
+  }
+}
+
+/* -------------------------------- render --------------------------------- */
+
+function renderRecording() {
+  const r = studio.rec;
+  if (!r) return;
+  S("studio-name").value = r.name;
+  S("studio-name").disabled = r.locked;
+  S("studio-summary").value = r.summary || "";
+  S("studio-summary").disabled = r.locked;
+  S("studio-lock-btn").textContent = r.locked ? "unlock" : "lock the record";
+  S("studio-lock").textContent = r.locked ? "locked — this is the committed record" : "";
+  S("studio-lock").dataset.state = r.locked ? "on" : "";
+  S("studio-count").textContent = "(" + r.takes.length + ")";
+
+  const host = S("studio-takes");
+  host.textContent = "";
+  const disabled = r.locked;
+  r.takes.forEach((take, i) => {
+    const card = document.createElement("div");
+    card.className = "take";
+    card.dataset.index = String(i);
+
+    const head = document.createElement("div");
+    head.className = "take-head";
+    const num = document.createElement("span");
+    num.className = "take-num";
+    num.textContent = String(i + 1).padStart(2, "0");
+    const dur = document.createElement("span");
+    dur.className = "take-dur";
+    dur.textContent = fmtTime(take.duration_s);
+    const spacer = document.createElement("span");
+    spacer.className = "take-spacer";
+    head.append(num, dur, spacer);
+
+    if (!disabled) {
+      const up = document.createElement("button");
+      up.className = "take-btn";
+      up.textContent = "↑";
+      up.title = "move earlier";
+      up.disabled = i === 0;
+      up.addEventListener("click", () => reorder(i, i - 1));
+      const down = document.createElement("button");
+      down.className = "take-btn";
+      down.textContent = "↓";
+      down.title = "move later";
+      down.disabled = i === r.takes.length - 1;
+      down.addEventListener("click", () => reorder(i, i + 1));
+      const del = document.createElement("button");
+      del.className = "take-btn danger";
+      del.textContent = "×";
+      del.title = "delete this take";
+      del.addEventListener("click", () => dropTake(i));
+      head.append(up, down, del);
+    }
+
+    const ta = document.createElement("textarea");
+    ta.className = "take-text";
+    ta.rows = 2;
+    ta.value = take.transcript;
+    ta.disabled = disabled;
+    ta.placeholder = "(no transcript yet)";
+    // edit in place: save on blur, and on Cmd/Ctrl+Enter
+    ta.addEventListener("blur", () => saveTranscript(i, ta.value));
+    ta.addEventListener("keydown", (ev) => {
+      if (ev.key === "Enter" && (ev.metaKey || ev.ctrlKey)) {
+        ev.preventDefault();
+        ta.blur();
+      }
+    });
+
+    card.append(head, ta);
+    host.appendChild(card);
+  });
+}
+
+/* -------------------------------- actions -------------------------------- */
+
+async function saveTranscript(index, text) {
+  if (!studio.rec || studio.rec.locked) return;
+  if ((studio.rec.takes[index] || {}).transcript === text.trim()) return;
+  try {
+    studio.rec = await invoke("grove_recording_patch", {
+      id: studio.rec.id,
+      takeIndex: index,
+      transcript: text,
+    });
+    studioStatus("take " + (index + 1) + " saved");
+  } catch (err) {
+    studioStatus("could not save: " + String(err).split("\n")[0]);
+  }
+}
+
+async function dropTake(index) {
+  if (!studio.rec || studio.rec.locked) return;
+  try {
+    studio.rec = await invoke("grove_recording_drop_take", {
+      id: studio.rec.id,
+      takeIndex: index,
+    });
+    renderRecording();
+    await loadMaster();
+    await studioRefresh();
+    studioStatus("take deleted");
+  } catch (err) {
+    studioStatus("could not delete: " + String(err).split("\n")[0]);
+  }
+}
+
+/* Reorder is local until you splice: you are arranging an edit, not rewriting
+   history. The order is sent to Rust only when "splice to master" runs. */
+let pendingOrder = null;
+function reorder(from, to) {
+  if (!studio.rec || studio.rec.locked) return;
+  if (!pendingOrder) pendingOrder = studio.rec.takes.map((_, i) => i);
+  const [moved] = pendingOrder.splice(from, 1);
+  pendingOrder.splice(to, 0, moved);
+  // reflect the new order immediately in the UI
+  const byOld = new Map(studio.rec.takes.map((t, i) => [i, t]));
+  studio.rec.takes = pendingOrder.map((i) => byOld.get(i));
+  renderRecording();
+  studioStatus("order changed — press splice to make it real");
+}
+
+async function doSplice() {
+  if (!studio.rec) return;
+  const order = pendingOrder || studio.rec.takes.map((_, i) => i);
+  studioStatus("splicing with ffmpeg…");
+  try {
+    studio.rec = await invoke("grove_recording_splice", { id: studio.rec.id, order });
+    pendingOrder = null;
+    renderRecording();
+    await loadMaster();
+    await studioRefresh();
+    studioStatus("master spliced — " + studio.rec.takes.length + " takes in order");
+  } catch (err) {
+    studioStatus("splice failed: " + String(err).split("\n")[0]);
+  }
+}
+
+async function toggleLock() {
+  if (!studio.rec) return;
+  try {
+    // flush the summary before locking so the record captures what is on screen
+    await invoke("grove_recording_patch", {
+      id: studio.rec.id,
+      summary: S("studio-summary").value,
+    });
+    studio.rec = await invoke("grove_recording_patch", {
+      id: studio.rec.id,
+      locked: !studio.rec.locked,
+    });
+    renderRecording();
+    await studioRefresh();
+    studioStatus(studio.rec.locked ? "locked — the record is committed" : "unlocked for editing");
+  } catch (err) {
+    studioStatus("could not lock: " + String(err).split("\n")[0]);
+  }
+}
+
+async function doExport() {
+  if (!studio.rec) return;
+  try {
+    const path = await invoke("grove_recording_export", { id: studio.rec.id });
+    studioStatus("exported to " + path);
+  } catch (err) {
+    studioStatus("export failed: " + String(err).split("\n")[0]);
+  }
+}
+
+async function saveName() {
+  if (!studio.rec || studio.rec.locked) return;
+  const name = S("studio-name").value.trim();
+  if (!name || name === studio.rec.name) return;
+  try {
+    studio.rec = await invoke("grove_recording_patch", { id: studio.rec.id, name });
+    await studioRefresh();
+  } catch (err) {
+    studioStatus("could not rename: " + String(err).split("\n")[0]);
+  }
+}
+
+async function saveSummary() {
+  if (!studio.rec || studio.rec.locked) return;
+  try {
+    studio.rec = await invoke("grove_recording_patch", {
+      id: studio.rec.id,
+      summary: S("studio-summary").value,
+    });
+    studioStatus("summary saved");
+  } catch (err) {
+    studioStatus("could not save summary: " + String(err).split("\n")[0]);
+  }
+}
+
+/* ------------------------------- open/close ------------------------------ */
+
+async function openStudio() {
+  studio.open = true;
+  S("studio-overlay").classList.remove("hidden");
+  await studioRefresh();
+  if (studio.rec) await studioOpen(studio.rec.id);
+}
+
+function closeStudio() {
+  studio.open = false;
+  S("studio-overlay").classList.add("hidden");
+  if (studio.audioEl) { try { studio.audioEl.pause(); } catch (_) {} }
+  setPlayLabel(false);
+}
+
+/* -------------------------------- wiring --------------------------------- */
+
+function studioWire() {
+  S("studio-close").addEventListener("click", closeStudio);
+  S("studio-play").addEventListener("click", () => {
+    const el = studio.audioEl;
+    if (!el) { studioStatus("no master yet — splice first"); return; }
+    if (el.paused) { el.play().then(() => setPlayLabel(true)).catch(() => {}); }
+    else { el.pause(); setPlayLabel(false); }
+  });
+  S("studio-seek").addEventListener("input", (ev) => {
+    const el = studio.audioEl;
+    if (!el || !el.duration) return;
+    el.currentTime = (Number(ev.target.value) / 1000) * el.duration;
+  });
+  S("studio-splice").addEventListener("click", doSplice);
+  S("studio-lock-btn").addEventListener("click", toggleLock);
+  S("studio-export").addEventListener("click", doExport);
+  S("studio-name").addEventListener("blur", saveName);
+  S("studio-summary").addEventListener("blur", saveSummary);
+  S("studio-record-more").addEventListener("click", () => {
+    closeStudio();
+    // the composer's mic starts a new take; it will attach to the open session
+    if (window.groveRecordMore) window.groveRecordMore();
+  });
+  document.addEventListener("keydown", (ev) => {
+    if (ev.key === "Escape" && studio.open) { closeStudio(); }
+  });
+}
+
+studioWire();
+
+/* Exposed so main.js can open the studio after a take lands, and so "record
+   another take" can attach the next one to the session that is open. */
+window.groveStudio = {
+  open: openStudio,
+  refresh: studioRefresh,
+  currentId: () => (studio.rec ? studio.rec.id : null),
+};
 
 </script>
 <script>
@@ -3404,7 +4066,14 @@ els.sidebarOpen.addEventListener("click", () => {
 
 /* ============================ dictation =========================== */
 
-const dictation = { recording: false, recorder: null, chunks: [], stream: null };
+const dictation = {
+  recording: false,
+  recorder: null,
+  chunks: [],
+  stream: null,
+  startedAt: 0,
+  lastSeconds: 0,
+};
 
 /* the mic button carries an icon + label now — only the label ever moves */
 function micLabel(text) {
@@ -3457,6 +4126,7 @@ async function toggleDictation() {
   dictation.recorder.onstop = finishDictation;
   dictation.recorder.start();
   dictation.recording = true;
+  dictation.startedAt = Date.now();
   micLabel("stop");
   els.mic.classList.add("rec");
   recChipShow();
@@ -3465,8 +4135,32 @@ async function toggleDictation() {
     : "recording — click stop when the thought is out";
 }
 
+/* The open studio session, if the operator has one. A take recorded while a
+   session is open is appended to it; otherwise the library starts a new one. */
+let activeRecordingId = null;
+
+async function saveTakeToLibrary(bytes, mime, transcript) {
+  try {
+    const rec = await invoke("grove_library_takes", {
+      bytes,
+      mime,
+      durationS: dictation.lastSeconds,
+      transcript: transcript || "",
+      recordingId: activeRecordingId || undefined,
+    });
+    activeRecordingId = rec.id;
+    window.groveStudio?.refresh?.();
+  } catch (err) {
+    // The prompt already has the transcript; the library is a convenience.
+    noteError("studio", err);
+  }
+}
+
 async function finishDictation() {
   dictation.recording = false;
+  dictation.lastSeconds = dictation.startedAt
+    ? (Date.now() - dictation.startedAt) / 1000
+    : 0;
   els.mic.classList.remove("rec");
   micLabel("…");
   els.mic.disabled = true;
@@ -3477,15 +4171,28 @@ async function finishDictation() {
   dictation.recorder = null;
   try {
     const bytes = Array.from(new Uint8Array(await blob.arrayBuffer()));
+    const mime = blob.type || "audio/webm";
     const file = await invoke("grove_save_recording", {
       bytes,
-      mime: blob.type || undefined,
+      mime,
     });
     els.status.textContent = "transcribing on-device (local whisper)...";
-    const text = await invoke("grove_transcribe", { file });
-    els.prompt.value = els.prompt.value ? els.prompt.value + "\n" + text : text;
-    els.status.textContent = "transcript in the prompt — edit it, then send";
-    els.prompt.focus();
+    // The take lands in the studio library whatever the transcript says:
+    // audio you captured is yours, and a failed transcript must not discard it.
+    let text = "";
+    try {
+      text = await invoke("grove_transcribe", { file });
+      els.prompt.value = els.prompt.value ? els.prompt.value + "\n" + text : text;
+      els.status.textContent = "transcript in the prompt — edit it, then send";
+      els.prompt.focus();
+    } catch (terr) {
+      // Be specific and honest: "nothing audible" is a different problem from
+      // "the rig is broken", and the recording is still saved either way.
+      const msg = String(terr).split("\n")[0];
+      els.status.textContent = "saved to studio — " + msg;
+      noteError("dictation", terr);
+    }
+    await saveTakeToLibrary(bytes, mime, text);
   } catch (err) {
     els.status.textContent = "dictation failed: " + String(err).split("\n")[0];
     noteError("dictation", err);
@@ -3496,6 +4203,17 @@ async function finishDictation() {
 }
 
 els.mic.addEventListener("click", toggleDictation);
+
+/* The studio's "record another take" closes the panel and arms the mic; the
+   next take appends to the session that was just open. */
+window.groveRecordMore = () => {
+  activeRecordingId = window.groveStudio?.currentId?.() || activeRecordingId;
+  toggleDictation();
+};
+
+document.getElementById("studio-toggle")?.addEventListener("click", () => {
+  window.groveStudio?.open?.();
+});
 
 /* ======================= workspace shell profile =================== */
 /* A business workspace may carry .spruce_grove/shell.json — the thin layer
