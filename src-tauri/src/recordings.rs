@@ -74,7 +74,10 @@ fn root() -> PathBuf {
         }
     }
     let home = std::env::var("HOME").unwrap_or_else(|_| ".".into());
-    Path::new(&home).join(".spruce_grove").join("desktop").join("recordings")
+    Path::new(&home)
+        .join(".spruce_grove")
+        .join("desktop")
+        .join("recordings")
 }
 
 fn index_path() -> PathBuf {
@@ -405,7 +408,15 @@ pub fn splice(id: &str, order: &[usize]) -> Result<Recording, String> {
     let master = dir.join("final.wav");
     let ffmpeg = ffmpeg_binary()?;
     let out = std::process::Command::new(&ffmpeg)
-        .args(["-hide_banner", "-loglevel", "error", "-f", "concat", "-safe", "0"])
+        .args([
+            "-hide_banner",
+            "-loglevel",
+            "error",
+            "-f",
+            "concat",
+            "-safe",
+            "0",
+        ])
         .arg("-i")
         .arg("splice.txt")
         .args(["-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", "-y"])
@@ -656,8 +667,15 @@ mod tests {
         assert_eq!(got, b"fake-audio-bytes");
 
         // append a second take to the same recording
-        let (rec2, t2) =
-            save_take(b"more", "audio/webm", 1.5, "Second thought.", Some(&id), None).expect("append");
+        let (rec2, t2) = save_take(
+            b"more",
+            "audio/webm",
+            1.5,
+            "Second thought.",
+            Some(&id),
+            None,
+        )
+        .expect("append");
         assert_eq!(rec2.takes.len(), 2);
         assert_eq!(t2.file, "take-001.webm");
 
@@ -676,11 +694,32 @@ mod tests {
         assert_eq!(patched.takes[0].transcript, "Edited first thought.");
 
         // lock, then a further edit must be refused
-        update(&id, Patch { locked: Some(true), ..Default::default() }).expect("lock");
-        assert!(update(&id, Patch { name: Some("nope".into()), ..Default::default() }).is_err());
+        update(
+            &id,
+            Patch {
+                locked: Some(true),
+                ..Default::default()
+            },
+        )
+        .expect("lock");
+        assert!(update(
+            &id,
+            Patch {
+                name: Some("nope".into()),
+                ..Default::default()
+            }
+        )
+        .is_err());
 
         // unlock, then drop a take
-        update(&id, Patch { locked: Some(false), ..Default::default() }).expect("unlock");
+        update(
+            &id,
+            Patch {
+                locked: Some(false),
+                ..Default::default()
+            },
+        )
+        .expect("unlock");
         let after = delete_take(&id, 0).expect("drop take");
         assert_eq!(after.takes.len(), 1);
         assert_eq!(after.takes[0].transcript, "Second thought.");
@@ -780,8 +819,7 @@ mod tests {
         let _guard = ENV_GUARD.lock().unwrap_or_else(|e| e.into_inner());
         let home = tmp_home("splice");
         let (rec, _) = save_take(b"a", "audio/webm", 1.0, "one", None, None).unwrap();
-        let (rec, _) =
-            save_take(b"b", "audio/webm", 1.0, "two", Some(&rec.id), None).unwrap();
+        let (rec, _) = save_take(b"b", "audio/webm", 1.0, "two", Some(&rec.id), None).unwrap();
         assert_eq!(rec.takes.len(), 2);
         // wrong length
         assert!(splice(&rec.id, &[0]).is_err());

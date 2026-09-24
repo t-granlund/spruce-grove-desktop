@@ -16,8 +16,8 @@ mod acp;
 mod audit;
 mod inspector;
 mod ledger;
-mod recordings;
 mod project;
+mod recordings;
 
 struct ActiveRun(Mutex<Option<Child>>);
 
@@ -140,8 +140,8 @@ fn grove_shell_profile(cwd: String) -> Result<Option<String>, String> {
         Err(_) => return Ok(None), // no profile: stock grove, honestly
     };
     // validate it parses before handing it to the UI (fail honest, not partial)
-    let parsed: serde_json::Value = serde_json::from_str(&text)
-        .map_err(|e| format!("shell.json invalid: {e}"))?;
+    let parsed: serde_json::Value =
+        serde_json::from_str(&text).map_err(|e| format!("shell.json invalid: {e}"))?;
     Ok(Some(parsed.to_string()))
 }
 
@@ -468,7 +468,13 @@ fn grove_acp_cancel(state: State<'_, acp::AcpState>, session_id: String) -> Resu
 fn grove_boot_marker(name: String, note: Option<String>) -> Result<(), String> {
     let safe: String = name
         .chars()
-        .map(|c| if c.is_ascii_alphanumeric() || c == '-' || c == '_' { c } else { '_' })
+        .map(|c| {
+            if c.is_ascii_alphanumeric() || c == '-' || c == '_' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect();
     let path = std::env::temp_dir().join(format!("sg-boot-{safe}.txt"));
     let stamp = std::time::SystemTime::now()

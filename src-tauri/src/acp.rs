@@ -200,10 +200,7 @@ fn write_msg(stdin: &Arc<Mutex<ChildStdin>>, msg: &Value) -> Result<(), String> 
 /// Fail every in-flight request with a synthetic error response. Called when
 /// the agent's stdout hits EOF: a dead agent must never leave a pending turn
 /// hanging (the UI's stall watchdog is the last resort, not the first).
-fn fail_all_pending(
-    pending: &Arc<Mutex<HashMap<u64, mpsc::Sender<Value>>>>,
-    why: &str,
-) -> usize {
+fn fail_all_pending(pending: &Arc<Mutex<HashMap<u64, mpsc::Sender<Value>>>>, why: &str) -> usize {
     let mut guard = match pending.lock() {
         Ok(g) => g,
         Err(_) => return 0, // poisoned: nothing honest left to do
@@ -236,9 +233,8 @@ pub fn start(
     // user's paths. Enrich PATH before spawning so behavior matches a
     // terminal launch.
     let home = std::env::var("HOME").unwrap_or_default();
-    let user_paths = format!(
-        "{home}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"
-    );
+    let user_paths =
+        format!("{home}/.local/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin");
     // Spawn through the user's login shell: a launchd-spawned GUI parent
     // leaves the child in a context where the CLI's turn path wedges (see
     // BUILD-LOG 34); a login shell re-establishes the user's full context.
@@ -255,7 +251,9 @@ pub fn start(
         ));
     }
     let mut child = Command::new(&shell)
-        .arg("-l").arg("-c").arg(&quoted)
+        .arg("-l")
+        .arg("-c")
+        .arg(&quoted)
         .env("PATH", user_paths)
         // GUI-spawned children otherwise inherit "/" as cwd; the CLI resolves
         // workspace-relative config and plugins from its working directory.
@@ -280,11 +278,16 @@ pub fn start(
         let reader = std::io::BufReader::new(stderr);
         for line in reader.lines().map_while(Result::ok) {
             let trimmed: &str = line.trim_end();
-            if trimmed.is_empty() { continue; }
+            if trimmed.is_empty() {
+                continue;
+            }
             let short: String = trimmed.chars().take(300).collect();
             let _ = app_err.emit(
                 "grove://acp",
-                AcpEvent { kind: "log".into(), data: json!({ "line": short }) },
+                AcpEvent {
+                    kind: "log".into(),
+                    data: json!({ "line": short }),
+                },
             );
         }
     });
@@ -301,7 +304,9 @@ pub fn start(
         let reader = BufReader::new(stdout);
         for line in reader.lines() {
             let Ok(line) = line else { break };
-            let Some(msg) = parse_line(&line) else { continue };
+            let Some(msg) = parse_line(&line) else {
+                continue;
+            };
             match classify(&msg) {
                 Incoming::Response(id, value) => {
                     if let Some(tx) = pending_reader.lock().unwrap().remove(&id) {
@@ -343,7 +348,10 @@ pub fn start(
                         };
                         let _ = app_reader.emit(
                             "grove://acp",
-                            AcpEvent { kind: kind.into(), data: params },
+                            AcpEvent {
+                                kind: kind.into(),
+                                data: params,
+                            },
                         );
                     }
                 }
@@ -410,7 +418,10 @@ pub fn start(
             )
         })
         .unwrap_or_else(|| Err("no previous session".into()));
-    let new = match load_attempt.ok().filter(|v| v.pointer("/result/sessionId").is_some()) {
+    let new = match load_attempt
+        .ok()
+        .filter(|v| v.pointer("/result/sessionId").is_some())
+    {
         Some(loaded) => {
             resumed = true;
             loaded
@@ -459,14 +470,23 @@ pub fn start(
 /// Send a user prompt; returns immediately. The turn streams `chunk`,
 /// `thought`, `tool` ... events and ends with a `turn-end` event carrying
 /// stopReason + token usage.
-pub fn prompt(state: &AcpState, session_id: &str, text: &str, app: &AppHandle) -> Result<(), String> {
+pub fn prompt(
+    state: &AcpState,
+    session_id: &str,
+    text: &str,
+    app: &AppHandle,
+) -> Result<(), String> {
     let (stdin, next_id, pending) = {
         let guard = state.0.lock().map_err(|_| "ACP state poisoned")?;
         let conn = guard.as_ref().ok_or("no active ACP session")?;
         if conn.session_id != session_id {
             return Err("session id mismatch".into());
         }
-        (conn.stdin.clone(), conn.next_id.clone(), conn.pending.clone())
+        (
+            conn.stdin.clone(),
+            conn.next_id.clone(),
+            conn.pending.clone(),
+        )
     };
 
     let rid = next_id.fetch_add(1, Ordering::SeqCst);
@@ -489,7 +509,10 @@ pub fn prompt(state: &AcpState, session_id: &str, text: &str, app: &AppHandle) -
             };
             let _ = app_turn.emit(
                 "grove://acp",
-                AcpEvent { kind: "turn-end".into(), data: payload },
+                AcpEvent {
+                    kind: "turn-end".into(),
+                    data: payload,
+                },
             );
         }
         Err(_) => {
@@ -541,7 +564,9 @@ mod tests {
         assert!(matches!(classify(&resp), Incoming::Response(7, _)));
 
         let req = json!({"jsonrpc":"2.0","id":3,"method":"session/request_permission","params":{}});
-        assert!(matches!(classify(&req), Incoming::AgentRequest(3, m, _) if m == "session/request_permission"));
+        assert!(
+            matches!(classify(&req), Incoming::AgentRequest(3, m, _) if m == "session/request_permission")
+        );
 
         let note = json!({"jsonrpc":"2.0","method":"session/update","params":{"update":{"sessionUpdate":"agent_message_chunk"}}});
         assert!(matches!(classify(&note), Incoming::Notification(m, _) if m == "session/update"));
@@ -601,8 +626,7 @@ mod tests {
     #[test]
     fn replay_probe_fixture() {
         let manifest = std::env::var("CARGO_MANIFEST_DIR").unwrap();
-        let path = std::path::Path::new(&manifest)
-            .join("../fixtures/acp/session.jsonl");
+        let path = std::path::Path::new(&manifest).join("../fixtures/acp/session.jsonl");
         let Ok(content) = std::fs::read_to_string(path) else {
             panic!("fixture missing - run python3 tests/acp_probe.py to record it");
         };
@@ -644,7 +668,11 @@ mod tests {
             "fixture lost its message chunks: {updates:?}"
         );
         assert!(
-            updates.get("available_commands_update").copied().unwrap_or(0) >= 1,
+            updates
+                .get("available_commands_update")
+                .copied()
+                .unwrap_or(0)
+                >= 1,
             "fixture lost available_commands_update"
         );
     }
@@ -668,7 +696,9 @@ mod tests {
         let msg = parse_line(&line).expect("OSC-prefixed line must parse");
         assert_eq!(msg.get("id").and_then(|v| v.as_u64()), Some(1));
         assert_eq!(
-            msg.get("result").and_then(|r| r.get("protocolVersion")).and_then(|v| v.as_u64()),
+            msg.get("result")
+                .and_then(|r| r.get("protocolVersion"))
+                .and_then(|v| v.as_u64()),
             Some(1)
         );
     }
