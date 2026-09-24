@@ -1,7 +1,7 @@
 //! Core Project View — the directory's own truth, read straight from the
 //! backend, never duplicated.
 //!
-//! Tyler's rule: "we're in a directory; there should be a core project view
+//! The rule: "we're in a directory; there should be a core project view
 //! with the tracker of everything that's going on... a direct reference of
 //! what's already in the beads default database."
 //!

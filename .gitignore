@@ -18,3 +18,12 @@ LATESTLog*.txt
 
 # macOS
 .DS_Store
+
+# Session prep + local issue-tracker state. The tracker/dolt hooks and
+# interactions log are local machinery; the prep briefs name people and hold
+# live call detail. Files stay on disk; the repo keeps the demo artifacts.
+.beads/
+handoff/research-brief.md
+handoff/*-source.md
+handoff/triton-discovery-call-prep.md
+handoff/README.md

@@ -19,8 +19,12 @@ const CAPABILITY: &str = include_str!("../capabilities/default.json");
 
 /// Directives whose absence means the floor has been lowered. Mirrors
 /// `CSP_HARDENING` in tests/test_desktop_ui.py so test and runtime agree.
-const REQUIRED_HARDENING: &[&str] =
-    &["object-src 'none'", "base-uri 'none'", "form-action 'none'", "frame-ancestors 'none'"];
+const REQUIRED_HARDENING: &[&str] = &[
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+    "frame-ancestors 'none'",
+];
 
 /// Pull the `csp` string out of tauri.conf.json without a schema dependency.
 fn csp_directives() -> (String, Vec<String>) {
@@ -46,12 +50,22 @@ fn capability_surface() -> (Vec<String>, Vec<String>) {
     let windows = cap
         .get("windows")
         .and_then(Value::as_array)
-        .map(|a| a.iter().filter_map(Value::as_str).map(String::from).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(Value::as_str)
+                .map(String::from)
+                .collect()
+        })
         .unwrap_or_default();
     let permissions = cap
         .get("permissions")
         .and_then(Value::as_array)
-        .map(|a| a.iter().filter_map(Value::as_str).map(String::from).collect())
+        .map(|a| {
+            a.iter()
+                .filter_map(Value::as_str)
+                .map(String::from)
+                .collect()
+        })
         .unwrap_or_default();
     (windows, permissions)
 }

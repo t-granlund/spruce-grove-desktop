@@ -147,7 +147,12 @@ fn gh_state(cwd: &str, repo: &str) -> Value {
     let prs = run_with_timeout(
         gh,
         &[
-            "pr", "list", "--limit", "4", "--json", "number,title,url,state,isDraft",
+            "pr",
+            "list",
+            "--limit",
+            "4",
+            "--json",
+            "number,title,url,state,isDraft",
         ],
         cwd,
         GH_TIMEOUT,
@@ -276,7 +281,11 @@ fn open_target(target: &str, is_url: bool) -> Result<(), String> {
     let _ = is_url; // only the Windows branch distinguishes url vs path
     #[cfg(target_os = "macos")]
     {
-        Command::new("open").arg(target).spawn().map(|_| ()).map_err(|e| format!("open: {e}"))
+        Command::new("open")
+            .arg(target)
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| format!("open: {e}"))
     }
     #[cfg(target_os = "windows")]
     {
@@ -287,12 +296,20 @@ fn open_target(target: &str, is_url: bool) -> Result<(), String> {
                 .map(|_| ())
                 .map_err(|e| format!("start: {e}"))
         } else {
-            Command::new("explorer").arg(target).spawn().map(|_| ()).map_err(|e| format!("explorer: {e}"))
+            Command::new("explorer")
+                .arg(target)
+                .spawn()
+                .map(|_| ())
+                .map_err(|e| format!("explorer: {e}"))
         }
     }
     #[cfg(all(unix, not(target_os = "macos")))]
     {
-        Command::new("xdg-open").arg(target).spawn().map(|_| ()).map_err(|e| format!("xdg-open: {e}"))
+        Command::new("xdg-open")
+            .arg(target)
+            .spawn()
+            .map(|_| ())
+            .map_err(|e| format!("xdg-open: {e}"))
     }
 }
 
@@ -322,13 +339,20 @@ fn os_line() -> String {
         let mut build = String::new();
         for line in sw.lines() {
             if line.starts_with("ProductVersion:") {
-                version = format!("macOS {}", line.trim_start_matches("ProductVersion:").trim());
+                version = format!(
+                    "macOS {}",
+                    line.trim_start_matches("ProductVersion:").trim()
+                );
             }
             if line.starts_with("BuildVersion:") {
                 build = line.trim_start_matches("BuildVersion:").trim().to_string();
             }
         }
-        if build.is_empty() { version } else { format!("{version} ({build})") }
+        if build.is_empty() {
+            version
+        } else {
+            format!("{version} ({build})")
+        }
     }
     #[cfg(target_os = "windows")]
     {
@@ -340,7 +364,11 @@ fn os_line() -> String {
             .and_then(|o| string_out(&Some(o)))
             .unwrap_or_default();
         let arch = std::env::consts::ARCH;
-        if rel.is_empty() { format!("Linux ({arch})") } else { format!("Linux {rel} ({arch})") }
+        if rel.is_empty() {
+            format!("Linux ({arch})")
+        } else {
+            format!("Linux {rel} ({arch})")
+        }
     }
 }
 
@@ -404,8 +432,11 @@ pub fn grove_settings_set(settings: Value) -> Result<Value, String> {
     let dir = data_dir();
     std::fs::create_dir_all(&dir).map_err(|e| format!("data dir: {e}"))?;
     let path = settings_path();
-    std::fs::write(&path, serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?)
-        .map_err(|e| format!("write settings: {e}"))?;
+    std::fs::write(
+        &path,
+        serde_json::to_string_pretty(&settings).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| format!("write settings: {e}"))?;
     Ok(settings)
 }
 
@@ -419,12 +450,17 @@ pub fn grove_repo_access(repos: Option<Vec<String>>) -> Value {
     let repos = repos.unwrap_or_else(|| {
         default_settings()["watched_repos"]
             .as_array()
-            .map(|a| a.iter().filter_map(Value::as_str).map(String::from).collect())
+            .map(|a| {
+                a.iter()
+                    .filter_map(Value::as_str)
+                    .map(String::from)
+                    .collect()
+            })
             .unwrap_or_default()
     });
-    let gh = gh_candidates().into_iter().find(|p| {
-        *p == "gh" || std::path::Path::new(p).exists()
-    });
+    let gh = gh_candidates()
+        .into_iter()
+        .find(|p| *p == "gh" || std::path::Path::new(p).exists());
     let Some(gh) = gh else {
         return json!({ "gh_ok": false, "note": "gh not installed", "repos": [] });
     };

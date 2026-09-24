@@ -1,7 +1,0 @@
-{
-  "database": "dolt",
-  "backend": "dolt",
-  "dolt_mode": "embedded",
-  "dolt_database": "spruce_grove_desktop",
-  "project_id": "c12d6a25-2da3-4651-8971-5fb3d2daaeea"
-}
