@@ -244,12 +244,21 @@ pub fn start(
     // BUILD-LOG 34); a login shell re-establishes the user's full context.
     let shell = std::env::var("SHELL").unwrap_or_else(|_| "/bin/zsh".to_string());
     let quoted = format!("exec '{}' --acp", program.replace('\'', "\\'"));
+    // A missing working directory makes `Command::spawn` fail with a bare
+    // ENOENT that reads as "the CLI is gone" — the app then quietly drops to
+    // legacy line mode and the send button stops working. (Observed live: a
+    // mistyped cwd `/Users/.../dev/f` produced exactly that.) Name the real
+    // problem up front so the UI can say something true and actionable.
+    if !std::path::Path::new(cwd).is_dir() {
+        return Err(format!(
+            "working directory does not exist: {cwd} — pick another with browse"
+        ));
+    }
     let mut child = Command::new(&shell)
         .arg("-l").arg("-c").arg(&quoted)
         .env("PATH", user_paths)
         // GUI-spawned children otherwise inherit "/" as cwd; the CLI resolves
         // workspace-relative config and plugins from its working directory.
-        .current_dir(std::path::Path::new(cwd))
         .args(&prefix)
         .arg("--acp")
         .current_dir(cwd)

@@ -36,7 +36,30 @@ next concrete step is** — in his own words, to someone else.
 2. **A seat at the council.** The grove runs on a council model (Triton already
    runs the same instinct — a non-profit publishing weekly).
 3. **A door.** An intro to whoever in the NWA operator network has the ugliest,
-   most repetitive workflow.
+   most repetitive workflow — **or a campus door** (see below).
+
+## The campus outlet — Vibe Studio (reported 9/24, unconfirmed)
+
+Met **Dr. Zack Steelman** (Walton College of Business, Univ. of Arkansas) at the
+Thursday breakfast. He is launching **Vibe Studio**: students get tool access
+**on day one**, across **every major**, with micro-grants and hardware loans so
+cost is not the gate. Details are **Tyler's firsthand report, not verified** —
+read `steelman-vibe-studio-source.md`.
+
+**Why it fits the Friday ask:** a pilot with Triton is *one room*. A pilot that
+lands in Vibe Studio is *every major on a campus* — the widest distribution this
+harness will ever find. It also makes the sovereignty point concrete: day-one
+access to a tool you don't own teaches a dependency before it teaches a craft.
+
+**Say it as:** *Vibe Studio is the distribution; Spruce Grove is the local-first
+harness underneath it.*
+
+**Do not overclaim.** Ask before asserting:
+- Is Vibe Studio official (college program), a lab, a pilot, or personal?
+- What tooling are students pointed at today? (That is the incumbent.)
+- Is there an appetite for a sovereignty/ownership angle in that room?
+- Does Dr. Steelman want students *building*, *research published*, or a
+  *pipeline to NWA employers*? Each implies a different fit.
 
 ## Questions to ask *them* (the 45 min is theirs to inform)
 

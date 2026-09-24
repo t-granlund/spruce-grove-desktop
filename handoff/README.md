@@ -29,7 +29,7 @@ OUTREACH repo).
 ## Walk it
 
 - **Arrow keys** (or Space / click) advance. **Home / End** jump to the ends.
-- **14 slides.** Three of them run live embeds.
+- **16 slides.** Four of them run live embeds / live-data panels.
 
 ## Play with the live demo
 
@@ -42,6 +42,12 @@ OUTREACH repo).
 - **Slide 11 "Where 'local vs cloud' stops being philosophy"** is the Jev/Laya story from this
   week's signal - the decision layer, closed API vs open weights. Sourced in
   `emtech-breakfast-club-source.md`; read it before presenting.
+- **Slide 14 "Vibe Studio - day one, every major"** is the campus-outlet story (Dr. Zack
+  Steelman, Walton College, Univ. of Arkansas). **Provenance: Tyler's firsthand report,
+  9/24/26 - details unconfirmed.** Source + open questions in
+  `steelman-vibe-studio-source.md`. The slide says so on its face
+  ("reported live from the room - details to confirm"). It also rewrites the ask:
+  ask-02 is now *a Triton pilot **or a campus door***.
 
 ## The emerging-tech context (read before the Thursday breakfast)
 
@@ -85,6 +91,18 @@ if the deck's embed works, the app's UI works.
 
     python3 tests/test_desktop_ui.py        # UI: streaming, dictation, steering, cancel, look-in, inspector, a11y
     cd src-tauri && cargo test              # 16 Rust seams
+
+## The campus outlet (new 9/24)
+
+**Vibe Studio** - Dr. Zack Steelman, Walton College of Business, University of
+Arkansas. Day-one access, every major, micro-grants + hardware loans. Reported
+live from the breakfast room; **not yet independently verified**.
+
+- Read `steelman-vibe-studio-source.md` before you say anything specific.
+- The framing to use: *Vibe Studio is the distribution; Spruce Grove is the
+  sovereign harness underneath it.*
+- The unknowns that matter: is it official/lab/pilot? what tooling do students
+  use today? does a sovereignty angle land there? **Ask, don't assume.**
 
 ## The companion brief
 
