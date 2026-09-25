@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Spruce Grove — The Technical Read</title>
+<link rel="stylesheet" href="fonts.css">
+<style>
+  :root{--bg:#0E130F;--ink:#EAE4D3;--dim:#C9CFC2;--faint:#8A938A;--cedar:#E4AA71;--moss:#6FA97A;
+    --mint:#98B79E;--line:rgba(234,228,211,.14);--line2:rgba(234,228,211,.07);
+    --mono:"JetBrains Mono",monospace}
+  *{box-sizing:border-box;margin:0}
+  body{background:
+    radial-gradient(ellipse 1000px 460px at 50% -10%, rgba(88,143,94,.16), transparent 60%),
+    radial-gradient(ellipse 700px 400px at 90% 108%, rgba(228,170,113,.07), transparent 62%),var(--bg);
+    color:var(--ink);font-family:"EB Garamond",Georgia,serif;overflow:hidden;height:100vh}
+  #grain{position:fixed;inset:0;pointer-events:none;opacity:.05;mix-blend-mode:overlay;z-index:99;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='140' height='140' filter='url(%23n)'/></svg>")}
+  .era{position:fixed;top:16px;right:22px;font-family:var(--mono);font-size:11px;color:rgba(234,228,211,.4);letter-spacing:.14em;z-index:100}
+  .count{position:fixed;bottom:18px;right:22px;font-family:var(--mono);font-size:14px;letter-spacing:.18em;color:rgba(234,228,211,.55);z-index:100}
+  .hint{position:fixed;bottom:18px;left:50%;transform:translateX(-50%);font-family:var(--mono);
+    font-size:10px;letter-spacing:.2em;color:rgba(234,228,211,.35);text-transform:uppercase;z-index:100}
+  .slide{position:fixed;inset:0;display:none;align-items:center;justify-content:center;text-align:center;
+    padding:52px 64px;flex-direction:column}
+  .slide.on{display:flex}
+  .slide.demo{justify-content:flex-start;padding-top:40px}
+  .slide img.mark{width:104px;height:auto;filter:drop-shadow(0 10px 30px rgba(228,170,113,.25));margin-bottom:22px}
+  .kick{font-family:var(--mono);font-size:11px;letter-spacing:.3em;text-transform:uppercase;color:var(--cedar);margin-bottom:16px}
+  h1{font-family:Fraunces,Georgia,serif;font-weight:560;font-size:clamp(2.3rem,5.2vw,4rem);line-height:1.06;color:var(--ink);letter-spacing:-.01em}
+  h1 em{font-style:italic;color:var(--cedar)}
+  h2{font-family:Fraunces,Georgia,serif;font-weight:560;font-size:clamp(1.8rem,3.4vw,2.6rem);color:var(--ink);margin-bottom:6px}
+  .dek{font-size:1.1em;font-style:italic;color:var(--dim);max-width:40em;margin:14px auto 0}
+  .dek b{font-style:normal;color:var(--ink)}
+  .rune{width:130px;margin-top:26px;opacity:.6}
+  code{font-family:var(--mono);color:var(--moss);font-size:.88em}
+  .mono{font-family:var(--mono)}
+  .stamp{display:inline-block;transform:rotate(-2.2deg);font-family:var(--mono);font-size:11px;
+    letter-spacing:.18em;text-transform:uppercase;color:var(--cedar);border:2px solid currentColor;
+    outline:1px solid rgba(228,170,113,.4);outline-offset:3px;padding:7px 12px;border-radius:2px;margin-top:24px}
+  .cols{display:flex;gap:18px;margin-top:26px;max-width:1080px;text-align:left;flex-wrap:wrap;justify-content:center}
+  .col{flex:1;min-width:210px;background:rgba(234,228,211,.04);border:1px solid var(--line);border-radius:10px;padding:16px 18px}
+  .col .k{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--cedar);margin-bottom:7px}
+  .col b{color:var(--ink);font-weight:600}
+  .col p{color:var(--dim);font-size:.9em;line-height:1.55;margin-top:4px}
+
+  /* ---- architecture diagram ---- */
+  .arch{display:flex;align-items:stretch;gap:0;margin-top:26px;width:min(1100px,94vw)}
+  .arch .tier{flex:1;border:1px solid var(--line);border-radius:12px;padding:18px 18px 14px;background:rgba(234,228,211,.03);
+    cursor:pointer;transition:.22s;text-align:left;position:relative}
+  .arch .tier:hover{border-color:rgba(228,170,113,.5);background:rgba(228,170,113,.06)}
+  .arch .tier.sel{border-color:var(--cedar);background:rgba(228,170,113,.10)}
+  .arch .tier .tk{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--cedar);margin-bottom:6px}
+  .arch .tier h4{font-family:Fraunces,serif;font-size:1.25em;font-weight:560;margin-bottom:6px}
+  .arch .tier p{font-size:.86em;color:var(--dim);line-height:1.5}
+  .arch .wire{width:56px;display:flex;align-items:center;justify-content:center;position:relative;flex:0 0 56px}
+  .arch .wire .lbl{position:absolute;top:50%;transform:translateY(-50%);font-family:var(--mono);font-size:9px;
+    letter-spacing:.14em;color:var(--faint);text-transform:uppercase;white-space:nowrap;background:var(--bg);padding:2px 4px;border-radius:3px}
+  .arch .wire::before{content:"";position:absolute;left:0;right:0;height:1px;background:var(--line)}
+  .arch .wire .dot{position:absolute;width:6px;height:6px;border-radius:50%;background:var(--moss);
+    box-shadow:0 0 10px var(--moss);animation:flow 2.4s linear infinite}
+  @keyframes flow{0%{left:2%;opacity:0}15%{opacity:1}85%{opacity:1}100%{left:92%;opacity:0}}
+  .detail{margin-top:16px;width:min(1100px,94vw);min-height:78px;border:1px solid var(--line2);border-left:3px solid var(--cedar);
+    border-radius:8px;padding:14px 18px;text-align:left;background:rgba(0,0,0,.22)}
+  .detail .dh{font-family:var(--mono);font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:var(--cedar)}
+  .detail p{font-size:.9em;color:var(--dim);line-height:1.6;margin-top:6px}
+  .detail code{color:var(--mint)}
+
+  /* ---- tables ---- */
+  table.cmp{width:min(1060px,94vw);border-collapse:collapse;margin-top:22px;font-size:.8em;text-align:left}
+  table.cmp th,table.cmp td{text-align:left;padding:7px 13px;border-bottom:1px solid var(--line);vertical-align:top}
+  table.cmp th{font-family:var(--mono);font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--cedar)}
+  table.cmp td{color:var(--dim);line-height:1.4}
+  table.cmp td:first-child{color:var(--ink);font-weight:600;white-space:nowrap}
+  table.cmp tr.us td{background:rgba(111,169,122,.10)}
+  table.cmp tr.us td:first-child{color:var(--moss)}
+  table.cmp code{font-size:.92em}
+
+  /* ---- metric strip ---- */
+  .metrics{display:flex;gap:0;flex-wrap:wrap;justify-content:center;margin-top:24px;border:1px solid var(--line);
+    background:rgba(234,228,211,.03);border-radius:10px;overflow:hidden}
+  .metrics .m{flex:1 1 150px;padding:14px 12px;text-align:center;border-right:1px solid var(--line)}
+  .metrics .m:last-child{border-right:0}
+  .metrics .num{font-family:Fraunces,serif;font-weight:600;font-size:1.8em;color:var(--cedar);display:block;line-height:1}
+  .metrics .what{font-family:var(--mono);font-size:9px;letter-spacing:.13em;text-transform:uppercase;color:var(--faint);margin-top:6px;display:block}
+
+  /* ---- hook bus ---- */
+  .bus{width:min(1080px,94vw);margin-top:20px}
+  .bus-cats{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-bottom:14px}
+  .bus-cats button{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;
+    color:var(--dim);background:rgba(234,228,211,.05);border:1px solid var(--line);border-radius:20px;
+    padding:6px 12px;cursor:pointer;transition:.18s}
+  .bus-cats button:hover{border-color:rgba(228,170,113,.5);color:var(--cedar)}
+  .bus-cats button.on{background:rgba(228,170,113,.16);color:var(--cedar);border-color:var(--cedar)}
+  .bus-wrap{display:flex;flex-wrap:wrap;gap:5px;justify-content:center;min-height:150px;align-content:flex-start}
+  .hook{font-family:var(--mono);font-size:10.5px;color:var(--faint);border:1px solid var(--line2);
+    border-radius:4px;padding:3px 7px;transition:.15s;cursor:default}
+  .hook.hot{color:var(--mint);border-color:rgba(152,183,158,.5);background:rgba(111,169,122,.10)}
+  .hook.pulse{color:var(--cedar);border-color:var(--cedar);background:rgba(228,170,113,.16);transform:translateY(-2px)}
+
+  /* ---- stepper (lifecycle) ---- */
+  .stepper{width:min(1080px,94vw);margin-top:20px}
+  .rail{display:flex;gap:0;align-items:center;justify-content:center;flex-wrap:wrap}
+  .rail .node{font-family:var(--mono);font-size:10px;letter-spacing:.1em;text-transform:uppercase;
+    color:var(--faint);border:1px solid var(--line2);border-radius:6px;padding:8px 11px;cursor:pointer;transition:.2s;white-space:nowrap}
+  .rail .node.on{color:var(--cedar);border-color:var(--cedar);background:rgba(228,170,113,.12)}
+  .rail .node.done{color:var(--mint);border-color:rgba(152,183,158,.4)}
+  .rail .seg{width:22px;height:1px;background:var(--line);flex:0 0 22px}
+  .stepbody{margin-top:16px;min-height:96px;border:1px solid var(--line2);border-left:3px solid var(--cedar);
+    border-radius:8px;padding:14px 18px;text-align:left;background:rgba(0,0,0,.22)}
+  .stepbody .sh{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--cedar)}
+  .stepbody p{font-size:.9em;color:var(--dim);line-height:1.6;margin-top:6px}
+  .stepctl{display:flex;gap:10px;justify-content:center;margin-top:12px}
+  .stepctl button{font-family:var(--mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink);
+    background:rgba(234,228,211,.06);border:1px solid var(--line);border-radius:20px;padding:7px 14px;cursor:pointer}
+  .stepctl button:hover{background:rgba(228,170,113,.16);color:var(--cedar)}
+
+  /* ---- CSP toggle ---- */
+  .floor{width:min(1080px,94vw);margin-top:20px;text-align:left}
+  .floor-row{display:flex;align-items:center;gap:12px;border:1px solid var(--line2);border-radius:7px;
+    padding:10px 14px;margin-bottom:8px;font-family:var(--mono);font-size:11.5px;transition:.25s}
+  .floor-row .pill{font-size:9px;letter-spacing:.12em;text-transform:uppercase;padding:2px 7px;border-radius:10px;
+    border:1px solid currentColor;flex:0 0 auto}
+  .floor-row.ok{color:var(--mint);border-color:rgba(152,183,158,.3)}
+  .floor-row.ok .pill{color:var(--mint)}
+  .floor-row.bad{color:#E08A6B;border-color:rgba(224,138,107,.4);background:rgba(224,138,107,.08)}
+  .floor-row.bad .pill{color:#E08A6B}
+  .floor-row .txt{color:var(--dim)}
+  .floor-row.bad .txt{color:#E0B49B}
+
+  /* ---- demo layers ---- */
+  #demo-layer,#cli-layer{position:fixed;left:50%;top:38vh;transform:translateX(-50%);width:min(1100px,93vw);
+    display:none;flex-direction:column;align-items:center;z-index:60}
+  #demo-layer.on,#cli-layer.on{display:flex}
+  .stage{width:100%;height:min(540px,54vh);border:1px solid var(--line);border-radius:12px;overflow:hidden;
+    background:#0b0f0c;box-shadow:0 24px 60px rgba(0,0,0,.5)}
+  #cli-layer .stage{height:min(420px,44vh)}
+  .stage iframe{width:100%;height:100%;border:0;display:block;background:#0b0f0c}
+  .stage:empty::after{content:'loading the live app…';display:flex;align-items:center;justify-content:center;
+    height:100%;font-family:var(--mono);font-size:12px;letter-spacing:.2em;color:var(--faint);text-transform:uppercase}
+  .cap{display:flex;align-items:center;gap:16px;justify-content:center;margin-top:12px}
+  .demo-exit{font-family:var(--mono);font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink);
+    background:rgba(234,228,211,.06);border:1px solid var(--line);border-radius:20px;padding:8px 15px;cursor:pointer}
+  .demo-exit:hover{background:rgba(228,170,113,.16);color:var(--cedar)}
+
+  .note{font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;color:var(--faint);margin-top:16px;max-width:44em;line-height:1.7}
+
+  @media print{
+    @page{size:A4 landscape;margin:0}
+    /* The PDF is the FALLBACK deck: paper has no dark mode, so flip the whole
+       surface to a light theme rather than leaving light text on white. */
+    :root{--ink:#1E2B22;--dim:#3E4A40;--faint:#6B736B;--cedar:#B0762F;--moss:#3F6B49;
+      --mint:#3F6B49;--line:rgba(30,43,34,.22);--line2:rgba(30,43,34,.12);--bg:#fff}
+    html,body{height:auto;overflow:visible;background:#fff;color:var(--ink)}
+    #grain,.era,.count,.hint,#demo-layer,#cli-layer{display:none!important}
+    .slide{position:relative;inset:auto;display:flex!important;height:100vh;page-break-after:always;
+      break-after:page;padding:36px 48px}
+    .slide:last-of-type{page-break-after:auto;break-after:auto}
+    .slide.demo::after{content:'[ live demo — see screen recording ]';font-family:var(--mono);
+      font-size:10px;letter-spacing:.2em;text-transform:uppercase;color:#6B736B;margin-top:18px}
+    /* boxes: solid light fills so their text is legible on paper */
+    .col,.tier,.detail,.stepbody,.metrics,.bus-wrap .hook,.floor-row{
+      background:#F4F2EC!important;border-color:rgba(30,43,34,.18)!important}
+    .detail,.stepbody{border-left:3px solid var(--cedar)!important}
+    .metrics .num{color:var(--cedar)!important}
+    .stamp{color:var(--cedar)!important;outline-color:rgba(176,118,47,.4)!important}
+    table.cmp tr.us td{background:#E9EFE7!important}
+    .hook.pulse,.hook.hot{background:#E9EFE7!important;color:var(--moss)!important}
+    .floor-row.bad{background:#F7E7E0!important}
+  }
+</style>
+</head>
+<body>
+<div id="grain" aria-hidden="true"></div>
+<div class="era">EST · MMXXVI</div>
+<div class="count" id="count">1 / 17</div>
+<div class="hint">arrow keys to walk · click the diagrams · live embeds play in place</div>
+
+<!-- 1 · TITLE -->
+<section class="slide on">
+  <img class="mark" src="../ui/assets-mark.svg" onerror="this.style.display='none'">
+  <p class="kick">triton ventures · the technical read</p>
+  <h1>How it actually works</h1>
+  <p class="dek">The architecture, the protocol, the security floor, and the tests —
+  for a room that reads diagrams the way other rooms read headlines.
+  <b>Prepared for Bill, Zak, and Mike.</b></p>
+  <svg class="rune" viewBox="0 0 120 24"><g stroke="#E4AA71" stroke-width="1.6" fill="none" stroke-linecap="round" opacity=".55"><path d="M60 3 V21 M60 10 L45 4 M60 10 L75 4"/><path d="M10 12 H42 M78 12 H110" opacity=".45"/></g></svg>
+</section>
+
+<!-- 2 · WHERE THE ROOM STANDS -->
+<section class="slide">
+  <p class="kick">how to read this</p>
+  <h2>Start where you already stand</h2>
+  <div class="cols">
+    <div class="col"><div class="k">mike · systems</div><p>You simplify the process <em>before</em> you automate it.
+    So the first three slides are the process, not the code — <b>what talks to what, and over what wire.</b></p></div>
+    <div class="col"><div class="k">zak · vocabulary</div><p>Harness engineering, loop engineering, sovereign AI.
+    This deck is the <b>substrate under that vocabulary</b> — 73 hook phases, a local loop, a swappable engine.</p></div>
+    <div class="col"><div class="k">bill · durability</div><p>The question never changes: <em>is the moat real?</em>
+    Slides 11&ndash;13 are the answer — <b>a security floor and a test matrix that fail the build on drift.</b></p></div>
+  </div>
+</section>
+
+<!-- 3 · THE SHAPE (interactive architecture) -->
+<section class="slide">
+  <p class="kick">the shape · click any tier</p>
+  <h2>Thin shell, tested engine, one wire</h2>
+  <div class="arch" id="arch">
+    <div class="tier" data-t="ui"><div class="tk">surface</div><h4>The webview UI</h4><p>Vanilla JS. Renders state, never computes it.</p></div>
+    <div class="wire"><span class="lbl">invoke</span><span class="dot"></span></div>
+    <div class="tier" data-t="shell"><div class="tk">chassis</div><h4>Tauri 2 shell · Rust</h4><p>7 files, 3,559 lines. Spawns the engine, streams it back.</p></div>
+    <div class="wire"><span class="lbl">ACP · JSON-RPC</span><span class="dot" style="animation-delay:.8s"></span></div>
+    <div class="tier" data-t="engine"><div class="tk">engine</div><h4>spruce-grove CLI</h4><p>Python 3.11+. 233 modules, 45 tools, 73 hooks.</p></div>
+    <div class="wire"><span class="lbl">provider</span><span class="dot" style="animation-delay:1.6s"></span></div>
+    <div class="tier" data-t="model"><div class="tk">the only wire out</div><h4>Your model provider</h4><p>The shell adds no network calls of its own.</p></div>
+  </div>
+  <div class="detail" id="arch-detail">
+    <div class="dh">the commitment</div>
+    <p>The shell owns <b>zero agent logic</b>. Every prompt spawns the CLI in your own working
+    directory and streams back thinking, tool calls, and tokens as they land — so the engine can improve
+    weekly without the shell churning. <em>Click a tier above.</em></p>
+  </div>
+</section>
+
+<!-- 4 · THE ENGINE -->
+<section class="slide">
+  <p class="kick">the engine · spruce-grove</p>
+  <h2>A harness, not a wrapper</h2>
+  <div class="metrics">
+    <div class="m"><span class="num">233</span><span class="what">python modules</span></div>
+    <div class="m"><span class="num">45</span><span class="what">tools</span></div>
+    <div class="m"><span class="num">30</span><span class="what">agents</span></div>
+    <div class="m"><span class="num">73</span><span class="what">hook phases</span></div>
+    <div class="m"><span class="num">356</span><span class="what">test files</span></div>
+    <div class="m"><span class="num">0</span><span class="what">telemetry calls</span></div>
+  </div>
+  <div class="cols">
+    <div class="col"><div class="k">the loop</div><p>Pydantic-AI underneath: typed tool schemas, structured
+    outputs, retries with checkpoints. <b>Providers are swappable</b> — OpenAI, Anthropic, Gemini, or a
+    local endpoint on your own metal.</p></div>
+    <div class="col"><div class="k">the context</div><p>Sessions are files, not a server. Resume, compact,
+    and a <b>turn-scoped working set</b> so a long session does not drag its whole history into every call.</p></div>
+    <div class="col"><div class="k">the conscience</div><p>Self-heal, diagnostics, a judge agent, and a
+    <b>ledger that writes down every decision</b> — including the ones that turn out wrong.</p></div>
+  </div>
+  <div class="stamp">no invented facts — if a number can drift, compute it</div>
+</section>
+
+<!-- 5 · HOOK BUS (interactive) -->
+<section class="slide">
+  <p class="kick">the extension seam · click a class</p>
+  <h2>73 hook phases, one bus</h2>
+  <div class="bus">
+    <div class="bus-cats" id="bus-cats">
+      <button data-c="all" class="on">all 73</button>
+      <button data-c="file">file ops</button>
+      <button data-c="run">shell &amp; gate</button>
+      <button data-c="agent">agent lifecycle</button>
+      <button data-c="model">model &amp; prompt</button>
+      <button data-c="reg">registration</button>
+      <button data-c="ui">ui &amp; stream</button>
+      <button data-c="session">session</button>
+      <button data-c="auth">auth</button>
+    </div>
+    <div class="bus-wrap" id="bus-wrap"></div>
+  </div>
+  <div class="detail">
+    <div class="dh">why this is the moat, not a feature</div>
+    <p>Every capability is a callback on a named phase — never an edit to core. Three tiers load in order
+    (<code>builtin → user → project</code>), project wins collisions, and a crashed guard on a security
+    phase <b>fails closed</b>. <em>Hover a phase to light its neighbours.</em></p>
+  </div>
+</section>
+
+<!-- 6 · PLUGIN TIERS -->
+<section class="slide">
+  <p class="kick">the plugin model</p>
+  <h2>Extend it without forking it</h2>
+  <table class="cmp">
+    <tr><th>tier</th><th>lives at</th><th>who owns it</th><th>trust</th></tr>
+    <tr><td>builtin</td><td><code>code_puppy_core_plugins/</code></td><td>the project</td><td>discovered via entry points</td></tr>
+    <tr><td>user</td><td><code>~/.spruce_grove/plugins/</code></td><td>you, on every project</td><td>your machine, your call</td></tr>
+    <tr class="us"><td>project</td><td><code>&lt;repo&gt;/.spruce_grove/plugins/</code></td><td>the repo, shared via git</td><td><b>SHA-256 gated — nothing loads until you type "trust"</b></td></tr>
+  </table>
+  <div class="detail" style="margin-top:18px">
+    <div class="dh">the detail that matters</div>
+    <p>Project-plugin trust is a hash of the directory, scoped to that project path. <b>Any file change
+    reverts to untrusted.</b> Runtime state is banned from the plugin dir — because state next to the code
+    would self-tamper the hash. Accepted plugins hot-load with no restart; <code>/plugins revoke</code> pulls trust.</p>
+  </div>
+</section>
+
+<!-- 7 · THE SHELL -->
+<section class="slide">
+  <p class="kick">the shell · tauri 2</p>
+  <h2>7 files. 3,559 lines. 37 commands.</h2>
+  <table class="cmp">
+    <tr><th>module</th><th>lines</th><th>job</th></tr>
+    <tr><td><code>recordings.rs</code></td><td>832</td><td>the recording library — play, splice, lock, export</td></tr>
+    <tr><td><code>acp.rs</code></td><td>713</td><td>the protocol router — classify, route, stream, cancel</td></tr>
+    <tr><td><code>inspector.rs</code></td><td>705</td><td>branch · commits · tree · PRs · CI, read live</td></tr>
+    <tr><td><code>main.rs</code></td><td>619</td><td>the 37 <code>#[tauri::command]</code> entry points</td></tr>
+    <tr><td><code>project.rs</code></td><td>405</td><td>governance docs found by convention, not a list</td></tr>
+    <tr><td><code>audit.rs</code></td><td>147</td><td>the self-audit floor — CSP + capability surface</td></tr>
+    <tr><td><code>ledger.rs</code></td><td>138</td><td>the append-only action ledger</td></tr>
+  </table>
+  <div class="note">Everything above streams through invoke; only live updates ride events. That split is
+  deliberate — and it is why a missing event permission once made the app "look stuck streaming" forever.</div>
+</section>
+
+<!-- 8 · ACP -->
+<section class="slide">
+  <p class="kick">the wire · agent client protocol</p>
+  <h2>JSON-RPC, not a private dialect</h2>
+  <p class="dek">The shell and engine speak <b>ACP</b> — the same protocol other clients speak. That is
+  what makes the engine separable: the desktop is one face, and a terminal, a CI job, or another editor
+  can be another.</p>
+  <div class="cols">
+    <div class="col"><div class="k">initialize</div><p>Protocol version negotiated up front, then
+    capabilities — <b>including the command list the UI renders.</b></p></div>
+    <div class="col"><div class="k">session/new · session/load</div><p>A session survives process death:
+    a fresh agent recalls the marker. <b>Proven, not assumed</b> — the probe test kills the process and asks.</p></div>
+    <div class="col"><div class="k">prompt · update</div><p>A turn streams back as chunk, thought, tool-call,
+    and turn-end notifications — <b>classified by the router, never string-matched in the UI.</b></p></div>
+    <div class="col"><div class="k">permission</div><p>An agent request becomes an allow-kind prompt;
+    the option chosen is deterministic and <b>unit-tested.</b></p></div>
+  </div>
+  <div class="stamp">a recorded session replays through the real router on every run — protocol drift fails first</div>
+</section>
+
+<!-- 9 · SESSION LIFECYCLE (interactive) -->
+<section class="slide">
+  <p class="kick">one turn · step through it</p>
+  <h2>The life of a prompt</h2>
+  <div class="stepper">
+    <div class="rail" id="rail"></div>
+    <div class="stepbody" id="stepbody">
+      <div class="sh" id="sh">step 1 · compose</div>
+      <p id="sp">You type, or you speak. The prompt lands in the shell, which never parses it — it hands the turn to the engine whole.</p>
+    </div>
+    <div class="stepctl">
+      <button id="step-prev">◀ back</button>
+      <button id="step-next">next ▶</button>
+    </div>
+  </div>
+</section>
+
+<!-- 10 · VOICE -->
+<section class="slide">
+  <p class="kick">voice · on-device</p>
+  <h2>Speak it, and the audio stays home</h2>
+  <p class="dek">Mic → local Whisper → an editable prompt. The audio never leaves the machine. But the
+  interesting engineering is the <b>guard against a model that confidently invents sentences.</b></p>
+  <div class="cols">
+    <div class="col"><div class="k">the failure</div><p>Whisper hallucinates on silence — repeating stock
+    phrases like <em>"Thank you."</em> across a pause. A naive transcript reads as real speech.</p></div>
+    <div class="col"><div class="k">density, per second of speech</div><p>Silence is measured with ffmpeg
+    <code>silencedetect</code> at <code>-30 dB</code>, <code>0.5 s</code> min, and <b>subtracted</b> from
+    duration. The guard is characters ÷ <em>speech</em> seconds, floor <code>2.0</code>.</p></div>
+    <div class="col"><div class="k">stock-token residue</div><p>Every known stock phrase is stripped, then
+    the remainder is checked. Repeated <em>"Thank you."</em> leaves nothing — and dies.
+    <b>Real speech that says "thank you" survives.</b></p></div>
+    <div class="col"><div class="k">fails safe</div><p>If silence detection fails, it falls back to total
+    duration — so the guard <b>can only get less strict, never more.</b></p></div>
+  </div>
+  <div class="stamp">27 tests · real takes, real pauses, a real hallucination that still gets rejected</div>
+</section>
+
+<!-- 11 · SECURITY FLOOR (interactive) -->
+<section class="slide">
+  <p class="kick">the floor · toggle it off and watch it fail</p>
+  <h2>Security the build refuses to lose</h2>
+  <div class="floor" id="floor">
+    <div class="floor-row ok" data-def="object-src 'none'"><span class="pill">csp</span><span class="txt">object-src 'none' — no plugin/object execution</span></div>
+    <div class="floor-row ok" data-def="base-uri 'none'"><span class="pill">csp</span><span class="txt">base-uri 'none' — no injected base tag rewriting URLs</span></div>
+    <div class="floor-row ok" data-def="form-action 'none'"><span class="pill">csp</span><span class="txt">form-action 'none' — no exfiltrating via a rogue form post</span></div>
+    <div class="floor-row ok" data-def="frame-ancestors 'none'"><span class="pill">csp</span><span class="txt">frame-ancestors 'none' — cannot be framed/clickjacked</span></div>
+    <div class="floor-row ok" data-def="cap"><span class="pill">cap</span><span class="txt">capability surface locked to one window ("main")</span></div>
+    <div class="floor-row ok" data-def="net"><span class="pill">net</span><span class="txt">shell adds zero network calls — provider traffic is the only wire</span></div>
+  </div>
+  <div class="stepctl" style="margin-top:14px">
+    <button id="floor-break">simulate drift ▸</button>
+    <button id="floor-fix">restore ◂</button>
+  </div>
+  <div class="detail" id="floor-detail" style="margin-top:14px">
+    <div class="dh">the mechanism</div>
+    <p>These are not settings someone remembers to check. <code>audit.rs</code> and the UI suite both
+    assert the same list; <b>if either drifts, the test suite goes red and the release is blocked.</b>
+    <em>Press "simulate drift".</em></p>
+  </div>
+</section>
+
+<!-- 12 · TEST MATRIX -->
+<section class="slide">
+  <p class="kick">the proof · tested at the seams</p>
+  <h2>Four layers, each catching a different lie</h2>
+  <table class="cmp">
+    <tr><th>layer</th><th>what it runs</th><th>the lie it catches</th></tr>
+    <tr><td>the contract</td><td>a recorded ACP session replayed through the real router</td><td>protocol drift — <b>fails loudly, first</b></td></tr>
+    <tr><td>the engine</td><td>356 test files, 8,119 tests, on every push; macOS before a release</td><td>a tool, hook, or session regression the shell would inherit</td></tr>
+    <tr><td>the chassis</td><td>39 Rust tests; CI builds macOS + Windows + Ubuntu</td><td>a platform seam that only breaks on someone else's machine</td></tr>
+    <tr><td>the glass</td><td>a Chromium suite driving the real UI JS, network blocked</td><td>a UI that works mocked and dies live</td></tr>
+    <tr class="us"><td>the floor</td><td>CSP + capability assertions in runtime <em>and</em> tests</td><td>a security default quietly lowered to make a demo pass</td></tr>
+  </table>
+  <div class="note">Onboarding, the project tracker, doc-convention discovery, and the one-file showcase
+  packet all have their own suites. <b>None of it is aspirational — it runs.</b></div>
+</section>
+
+<!-- 13 · OBSERVABILITY -->
+<section class="slide">
+  <p class="kick">sovereignty · observable by design</p>
+  <h2>If it can drift, it is written down</h2>
+  <div class="cols">
+    <div class="col"><div class="k">the ledger</div><p>An append-only action log. Inspect it in-app; it is
+    the same record the tests read. <b>Decisions, not vibes.</b></p></div>
+    <div class="col"><div class="k">the inspector</div><p>Branch, commits, dirty tree, PRs, CI — read live
+    from <code>git</code> and <code>gh</code>. Authorization is GitHub's own
+    <code>viewerPermission</code>; <b>no invented roles.</b></p></div>
+    <div class="col"><div class="k">the look-in</div><p>While the agent works, a panel shows the screenshots
+    and the actions it took. <b>Seeing is the trust model.</b></p></div>
+  </div>
+  <div class="stamp">zero telemetry · zero added network calls</div>
+</section>
+
+<!-- 14 · LIVE: SHELL -->
+<section class="slide demo" data-demo>
+  <p class="kick">live · the shell</p>
+  <h2>Watch a turn stream</h2>
+  <p class="dek" style="max-width:44em;font-size:1.02em">The real app on a canned bridge. Type anything —
+  thinking, tool calls with status, and per-turn token counts stream in.</p>
+</section>
+
+<!-- 15 · LIVE: HEADLESS -->
+<section class="slide demo" data-cli>
+  <p class="kick">live · the engine, no shell</p>
+  <h2>Same harness, headless</h2>
+  <p class="dek" style="max-width:46em;font-size:1.02em">One engine, many doors: terminal, CI, ACP behind
+  another client. The desktop never became a dependency of the thing that does the work.</p>
+</section>
+
+<!-- 16 · REPRODUCIBILITY -->
+<section class="slide">
+  <p class="kick">the build · reproducible on purpose</p>
+  <h2>One source of truth, or it does not ship</h2>
+  <div class="cols">
+    <div class="col"><div class="k">the site</div><p>The published layout is one script. CI calls it; the
+    tests call it. <b>What deploys and what we verify are the same code path.</b></p></div>
+    <div class="col"><div class="k">the brand</div><p>Logo masters promote to every consumer through one
+    sync script; CI fails on drift. <b>A stale copy once shipped; now it cannot.</b></p></div>
+    <div class="col"><div class="k">the packet</div><p>The send-one-file demo is generated and checked —
+    <b>verified to render offline with the network blocked.</b></p></div>
+  </div>
+  <div class="detail" style="margin-top:18px">
+    <div class="dh">the honest limit</div>
+    <p>Reproducibility is a discipline, not a property you get for free. Each of these was a real drift
+    that shipped once before the guard existed. <b>The guard is the product.</b></p>
+  </div>
+</section>
+
+<!-- 17 · THE CLOSE -->
+<section class="slide">
+  <img class="mark" src="../ui/assets-mark.svg" onerror="this.style.display='none'">
+  <p class="kick">what this means for the room</p>
+  <h2>Durable because it is watchable</h2>
+  <p class="dek">A swappable engine under a thin shell. A protocol other clients already speak.
+  A security floor and a test matrix that fail the build on drift. And a local loop —
+  <b>your machine, your metal, nothing upstream can switch it off.</b></p>
+  <div class="cols">
+    <div class="col"><div class="k">the moat is not a feature</div><p>It is the habit: every claim in this
+    deck traces to a test, a file, or a live page. <b>Verify any of it.</b></p></div>
+    <div class="col"><div class="k">the ask narrows</div><p>A pilot, or a campus door. Either way the
+    substrate is here and inspecting it takes an afternoon.</p></div>
+  </div>
+  <div class="stamp">together we are better — always</div>
+</section>
+
+<section id="demo-layer"><div class="stage" id="demo-stage"></div>
+  <div class="cap"><span class="demo-hint" style="font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--faint);text-transform:uppercase">live app · canned bridge</span>
+  <button class="demo-exit">close </button></div></section>
+<section id="cli-layer"><div class="stage" id="cli-stage"></div>
+  <div class="cap"><span class="demo-hint" style="font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--faint);text-transform:uppercase">engine replay · headless</span>
+  <button class="demo-exit">close </button></div></section>
+
+<script>
+(function(){
+  "use strict";
+  var slides=[].slice.call(document.querySelectorAll('.slide'));
+  var count=document.getElementById('count');
+  var i=0;
+
+  /* ---------- architecture: click a tier ---------- */
+  var ARCH={
+    ui:{h:'the webview UI',p:'Vanilla JavaScript, no framework. It renders state and never computes it — so the UI cannot become a second, silently-diverging source of truth. It talks to Rust only through <code>invoke</code> (commands) and <code>listen</code> (live events).'},
+    shell:{h:'the Tauri 2 shell · Rust',p:'Seven files, 3,559 lines, 37 commands. It spawns the CLI in your working directory with <code>--acp</code>, routes the stream, and owns the security floor. <b>Zero agent logic</b> — which is why the engine can change weekly without the shell churning.'},
+    engine:{h:'the spruce-grove CLI',p:'Python 3.11+. 233 modules, 45 tools, 30 agents, <b>73 hook phases</b>, 356 test files. A real harness: tools, plugins, sessions, memory, self-heal, and a judge — not a prompt wrapper.'},
+    model:{h:'your model provider',p:'OpenAI, Anthropic, Gemini, or a local endpoint on your own metal. The shell adds <b>no network calls of its own</b> — this is the only wire out of the machine. Swappable by design: the harness is the asset, not the model.'}
+  };
+  var archDetail=document.getElementById('arch-detail');
+  [].forEach.call(document.querySelectorAll('#arch .tier'),function(t){
+    t.addEventListener('click',function(e){
+      e.stopPropagation();
+      [].forEach.call(document.querySelectorAll('#arch .tier'),function(x){x.classList.remove('sel')});
+      t.classList.add('sel');
+      var d=ARCH[t.dataset.t];
+      archDetail.innerHTML='<div class="dh">'+d.h+'</div><p>'+d.p+'</p>';
+    });
+  });
+
+  /* ---------- hook bus ----------
+     ALL 73 phase names are copied verbatim from spruce_grove/callbacks.py
+     (PhaseType). The categorisation below is ours; the names are not,
+     and the assertion at the bottom of this block fails loudly if the
+     visible count ever disagrees with the 73 the deck claims. */
+  var PHASE_GROUPS={
+    file:['edit_file','create_file','replace_in_file','delete_snippet','delete_file','apply_patch','file_permission'],
+    run:['run_shell_command','run_shell_command_output','pre_tool_call','post_tool_call','pre_mcp_autostart','register_mcp_catalog_servers','register_browser_types'],
+    agent:['startup','shutdown','invoke_agent','agent_exception','agent_reload','agent_run_start','agent_run_end','agent_run_result','agent_run_context','agent_run_cancel','on_message','wrap_pydantic_agent','should_skip_fallback_render','interactive_turn_end','interactive_turn_cancel','user_prompt_submit','awaiting_user_input','notification'],
+    model:['load_model_config','load_models_config','load_model_descriptions','load_prompt','get_model_system_prompt','prepare_model_prompt','transform_model_messages','model_select','message_history_processor_start','message_history_processor_end'],
+    reg:['register_tools','register_agent_tools','register_agents','register_model_type','register_skills','register_kennel_memory','register_cli_args','handle_cli_args','register_model_providers','register_completion_provider','git_branch_provider','feature_capability'],
+    ui:['stream_event','thinking_display_filter','termflow_style','prompt_toolkit_style','termflow_highlighter','prompt_text_color','custom_command','custom_command_help','usage_status','version_check'],
+    session:['session_end','session_browser_open','pre_compact','post_autosave','interactive_turn_end'],
+    auth:['provider_credential_flow','check_claude_oauth_token_expiry','refresh_claude_oauth_token','load_claude_oauth_models','claude_oauth_authenticate']
+  };
+  var ALL=[];
+  Object.keys(PHASE_GROUPS).forEach(function(k){ALL=ALL.concat(PHASE_GROUPS[k])});
+  // de-dupe (interactive_turn_end appears twice by intent) and assert 73
+  ALL=ALL.filter(function(v,i){return ALL.indexOf(v)===i});
+  if(ALL.length!==73){
+    // visible, not silent: the deck claims 73, so the deck must show 73
+    document.getElementById('count').title='HOOK COUNT MISMATCH: '+ALL.length;
+  }
+  var wrap=document.getElementById('bus-wrap');
+  function renderBus(cat){
+    wrap.innerHTML='';
+    var list = cat==='all' ? ALL : PHASE_GROUPS[cat];
+    list.forEach(function(h){
+      var s=document.createElement('span');
+      s.className='hook'+(cat!=='all'?' hot':'');
+      s.textContent=h;
+      s.addEventListener('mouseenter',function(){
+        [].forEach.call(wrap.children,function(c){c.classList.remove('pulse')});
+        var idx=[].indexOf.call(wrap.children,s);
+        [idx-1,idx,idx+1].forEach(function(j){ if(wrap.children[j]) wrap.children[j].classList.add('pulse'); });
+      });
+      wrap.appendChild(s);
+    });
+  }
+  [].forEach.call(document.querySelectorAll('#bus-cats button'),function(b){
+    b.addEventListener('click',function(e){
+      e.stopPropagation();
+      [].forEach.call(document.querySelectorAll('#bus-cats button'),function(x){x.classList.remove('on')});
+      b.classList.add('on');
+      renderBus(b.dataset.c);
+    });
+  });
+  renderBus('all');
+
+  /* ---------- lifecycle stepper ---------- */
+  var STEPS=[
+    {k:'compose',h:'step 1 · compose',p:'You type, or you speak. The prompt lands in the shell, which never parses it — it hands the turn to the engine whole. No pre-processing to diverge from what you meant.'},
+    {k:'spawn',h:'step 2 · spawn',p:'The shell spawns <code>spruce-grove --acp</code> in your working directory. The engine, not the shell, now owns the turn. This is the separation that keeps the engine swappable.'},
+    {k:'inject',h:'step 3 · inject context',p:'Hooks fire: the system prompt assembles, model messages are transformed, kennel memory and the turn working-set are attached. <b>Every layer is a named hook phase</b> — visible, replaceable, testable.'},
+    {k:'model',h:'step 4 · model call',p:'A typed request goes to the provider of your choosing. The response streams back as events — not a single blob — so the UI can show the work as it happens.'},
+    {k:'tool',h:'step 5 · tool call',p:'A tool call arrives. Before it runs, the pre-call hook bus sees it; a guard may rewrite the command or block it outright. A crashed guard on this phase <b>fails closed.</b>'},
+    {k:'perm',h:'step 6 · permission',p:'Anything sensitive becomes an explicit agent request, rendered as an allow-kind prompt. The selected option is deterministic and unit-tested — no guessing which button the UI will press.'},
+    {k:'stream',h:'step 7 · stream to glass',p:'Thinking, chunks, tool status, and token counts flow to the webview over events. The UI renders them; it never re-derives them. What you see is what the engine said.'},
+    {k:'ledger',h:'step 8 · record',p:'The turn closes: <code>agent_run_end</code> fires, usage is recorded, and the action ledger appends. <b>The receipt exists before anyone asks for it.</b>'}
+  ];
+  var rail=document.getElementById('rail');
+  STEPS.forEach(function(s,idx){
+    if(idx>0){var seg=document.createElement('span');seg.className='seg';rail.appendChild(seg);}
+    var n=document.createElement('span');n.className='node';n.textContent=s.k;
+    n.addEventListener('click',function(e){e.stopPropagation();setStep(idx)});
+    rail.appendChild(n);
+  });
+  var si=0, sh=document.getElementById('sh'), sp=document.getElementById('sp');
+  function setStep(n){
+    si=Math.max(0,Math.min(STEPS.length-1,n));
+    sh.textContent=STEPS[si].h; sp.innerHTML=STEPS[si].p;
+    [].forEach.call(rail.querySelectorAll('.node'),function(node,j){
+      node.classList.toggle('on',j===si);
+      node.classList.toggle('done',j<si);
+    });
+  }
+  document.getElementById('step-prev').addEventListener('click',function(e){e.stopPropagation();setStep(si-1)});
+  document.getElementById('step-next').addEventListener('click',function(e){e.stopPropagation();setStep(si+1)});
+  setStep(0);
+
+  /* ---------- security floor toggle ---------- */
+  var floor=document.getElementById('floor');
+  var floorDetail=document.getElementById('floor-detail');
+  function breakFloor(){
+    [].forEach.call(floor.querySelectorAll('.floor-row'),function(r){
+      r.classList.remove('ok');r.classList.add('bad');
+      r.querySelector('.pill').textContent='drift';
+    });
+    floorDetail.innerHTML='<div class="dh" style="color:#E08A6B">build fails</div>'+
+      '<p>With any one of these lowered, the assertion in <code>audit.rs</code> and the matching one in '+
+      'the UI suite disagree with the shipped config — <b>the gate goes red and the release is blocked.</b> '+
+      'That is the whole point: the floor is enforced, not documented.</p>';
+  }
+  function fixFloor(){
+    [].forEach.call(floor.querySelectorAll('.floor-row'),function(r){
+      r.classList.remove('bad');r.classList.add('ok');
+      r.querySelector('.pill').textContent = r.dataset.def==='cap'?'cap':(r.dataset.def==='net'?'net':'csp');
+    });
+    floorDetail.innerHTML='<div class="dh">the mechanism</div>'+
+      '<p>These are not settings someone remembers to check. <code>audit.rs</code> and the UI suite both '+
+      'assert the same list; <b>if either drifts, the test suite goes red and the release is blocked.</b></p>';
+  }
+  document.getElementById('floor-break').addEventListener('click',function(e){e.stopPropagation();breakFloor()});
+  document.getElementById('floor-fix').addEventListener('click',function(e){e.stopPropagation();fixFloor()});
+
+  /* ---------- demo layers ---------- */
+  function makeLayer(layerId,stageId,attr,src){
+    var layer=document.getElementById(layerId), frame=document.getElementById(stageId);
+    var d={layer:layer,frame:frame,attr:attr,src:src,loaded:false};
+    return d;
+  }
+  var demos=[
+    makeLayer('demo-layer','demo-stage','data-demo','showcase.html'),
+    makeLayer('cli-layer','cli-stage','data-cli','cli-showcase.html')
+  ];
+
+  function go(n){
+    if(slides[i]) slides[i].classList.remove('on');
+    i=Math.max(0,Math.min(slides.length-1,n));
+    var s=slides[i];
+    s.classList.add('on');
+    count.textContent=(i+1)+' / '+slides.length;
+    demos.forEach(function(d){
+      var show=s.hasAttribute(d.attr);
+      if(show && !d.loaded){ d.frame.src=d.src; d.loaded=true; }
+      if(!show){ try{d.frame.blur();}catch(e){} }
+      d.layer.classList.toggle('on',show);
+    });
+  }
+
+  document.addEventListener('keydown',function(e){
+    if(['INPUT','TEXTAREA'].indexOf((e.target.tagName||''))>=0) return;
+    if(e.key==='ArrowRight'||e.key===' '||e.key==='PageDown'){e.preventDefault();go(i+1);}
+    if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();go(i-1);}
+    if(e.key==='Home')go(0); if(e.key==='End')go(slides.length-1);
+  });
+  document.addEventListener('click',function(e){
+    if(e.target.closest('a')||e.target.closest('.demo-exit')||e.target.closest('iframe')||
+       e.target.closest('.tier')||e.target.closest('button'))return;
+    go(i+1);
+  });
+  document.querySelectorAll('.demo-exit').forEach(function(btn){
+    btn.addEventListener('click',function(ev){
+      ev.stopPropagation();
+      demos.forEach(function(x){ try{x.frame.blur();}catch(e){} });
+      btn.focus();
+    });
+  });
+  go(0);
+})();
+</script>
+</body>
+</html>

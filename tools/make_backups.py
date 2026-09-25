@@ -35,6 +35,14 @@ RECEIPTS_MP4 = VIDEO_DIR / "receipts-walk.mp4"
 
 DECK_URL = "file://" + str(DECK)
 
+#: The second deck — the technical read. Same tool, same guarantees: its PDF
+#: and slide PNGs are derived, never hand-made, so they cannot drift from the
+#: HTML the way a separately-exported file would.
+TECH_DECK = ROOT / "handoff" / "triton-tech-deepdive.html"
+TECH_PDF = ROOT / "handoff" / "triton-tech-deepdive.pdf"
+TECH_SLIDES_DIR = VIDEO_DIR / "tech-slides"
+TECH_URL = "file://" + str(TECH_DECK)
+
 
 def slide_count(page) -> int:
     return page.evaluate("() => document.querySelectorAll('.slide').length")
@@ -120,6 +128,39 @@ def convert_video() -> None:
     print(f"wrote {RECEIPTS_MP4.relative_to(ROOT)}")
 
 
+def backup_tech_deck() -> int:
+    """PDF + slide PNGs for the technical deck, derived from its HTML."""
+    if not TECH_DECK.exists():
+        print(f"ERROR: tech deck missing: {TECH_DECK}", file=sys.stderr)
+        return 1
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        page = browser.new_page(viewport={"width": 1280, "height": 720})
+        errs: list[str] = []
+        page.on("pageerror", lambda e: errs.append(str(e)))
+        page.goto(TECH_URL)
+        page.wait_for_timeout(700)
+        n = slide_count(page)
+        print(f"tech deck: {n} slides, {len(errs)} page errors")
+        page.pdf(path=str(TECH_PDF), width="1280px", height="720px",
+                 print_background=True, page_ranges="1-40")
+        print(f"wrote {TECH_PDF.relative_to(ROOT)}")
+        TECH_SLIDES_DIR.mkdir(parents=True, exist_ok=True)
+        for old in TECH_SLIDES_DIR.glob("slide-*.png"):
+            old.unlink()
+        page.emulate_media(media="print")
+        page.add_style_tag(content=".slide{display:flex!important;position:relative;height:720px}")
+        for i in range(n):
+            handle = page.evaluate_handle(
+                "(i) => document.querySelectorAll('.slide')[i]", i).as_element()
+            if handle:
+                handle.screenshot(path=str(TECH_SLIDES_DIR / f"slide-{i + 1:02d}.png"))
+        page.emulate_media(media="screen")
+        print(f"wrote {n} slide PNGs to {TECH_SLIDES_DIR.relative_to(ROOT)}")
+        browser.close()
+    return 0
+
+
 def main() -> int:
     if not DECK.exists():
         print(f"ERROR: deck missing: {DECK}", file=sys.stderr)
@@ -138,6 +179,7 @@ def main() -> int:
         browser.close()
     record_receipts_walk()
     convert_video()
+    backup_tech_deck()
     return 0
 
 
