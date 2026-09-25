@@ -611,14 +611,28 @@
   document.getElementById('floor-fix').addEventListener('click',function(e){e.stopPropagation();fixFloor()});
 
   /* ---------- demo layers ---------- */
-  function makeLayer(layerId,stageId,attr,src){
-    var layer=document.getElementById(layerId), frame=document.getElementById(stageId);
-    var d={layer:layer,frame:frame,attr:attr,src:src,loaded:false};
-    return d;
+  function makeLayer(layerId,stageId,attr,src,title){
+    // The stage is an empty <div>; the deck's own CSS (.stage iframe) expects a
+    // real <iframe> inside it. Assigning .src to the div -- the earlier shape --
+    // was a silent no-op, so the embed sat on the :empty "loading" fallback
+    // forever. Create and append a genuine iframe, exactly as the business deck
+    // does, so the live embeds actually mount.
+    var layer=document.getElementById(layerId), stage=document.getElementById(stageId);
+    var frame=document.createElement('iframe');
+    frame.title=title;
+    stage.appendChild(frame);
+    // the embedded app focuses its own inputs on boot; hand the keyboard back to
+    // the deck so arrow keys keep walking slides until the presenter clicks in
+    frame.addEventListener('load',function(){
+      try{frame.blur();}catch(e){}
+      document.body.setAttribute('tabindex','-1');
+      document.body.focus();
+    });
+    return {layer:layer,stage:stage,frame:frame,attr:attr,src:src,loaded:false};
   }
   var demos=[
-    makeLayer('demo-layer','demo-stage','data-demo','showcase.html'),
-    makeLayer('cli-layer','cli-stage','data-cli','cli-showcase.html')
+    makeLayer('demo-layer','demo-stage','data-demo','showcase.html','Spruce Grove — live app (canned bridge)'),
+    makeLayer('cli-layer','cli-stage','data-cli','cli-showcase.html','Spruce Grove — engine replay (headless)')
   ];
 
   function go(n){
