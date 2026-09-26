@@ -146,11 +146,31 @@ window.__TAURI__ = {
         return JSON.parse(JSON.stringify(rec));
       }
       if (cmd === "grove_recording_audio") {
-        // a tiny valid WAV so the player/waveform path is exercised
+        // A REAL mono PCM WAV (16kHz, 0.4s, 440Hz), so the waveform path is
+        // genuinely exercised: decodeAudioData must succeed and the canvas must
+        // be drawn. The old 4-byte "RIFF" stub never decoded, so nothing
+        // asserted the waveform and the CSP-blocked fetch went unnoticed.
         if (args.file !== "final.wav") throw new Error("no master yet");
         const rec = window.__library[args.id];
         if (!rec || !rec.master) throw new Error("no master yet");
-        return rec.masterBytes || [82, 73, 70, 70];
+        if (!window.__testWav) window.__testWav = (function () {
+          const sr = 16000, n = Math.floor(sr * 0.4), amp = 0.3;
+          const bytes = [];
+          const push = (arr) => { for (const b of arr) bytes.push(b & 255); };
+          const u32 = (v) => [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >> 24) & 255];
+          const u16 = (v) => [v & 255, (v >> 8) & 255];
+          const dataLen = n * 2;
+          push([82, 73, 70, 70]); push(u32(36 + dataLen)); push([87, 65, 86, 69]);
+          push([102, 109, 116, 32]); push(u32(16)); push(u16(1)); push(u16(1));
+          push(u32(sr)); push(u32(sr * 2)); push(u16(2)); push(u16(16));
+          push([100, 97, 116, 97]); push(u32(dataLen));
+          for (let i = 0; i < n; i++) {
+            const v = Math.round(amp * 32767 * Math.sin(2 * Math.PI * 440 * i / sr));
+            push(u16(v < 0 ? v + 65536 : v));
+          }
+          return bytes;
+        })();
+        return window.__testWav;
       }
       if (cmd === "grove_recording_patch") {
         const rec = window.__library[args.id];
@@ -886,6 +906,16 @@ def main() -> int:
             files = [t["file"] for t in spliced["takes"]]
             if files != ["take-000.webm", "take-001.webm"]:
                 failures.append(f"studio: splice did not renumber takes ({files})")
+
+            # the waveform must actually render (regression: the CSP blocked the
+            # fetch(blob:) re-read, so every waveform said "could not be decoded")
+            page.wait_for_timeout(500)
+            wave = page.evaluate("""() => ({
+              canvas: !!document.querySelector('#studio-wave canvas.studio-canvas'),
+              note: (document.querySelector('#studio-wave .studio-note') || {}).textContent || ''
+            })""")
+            if not wave["canvas"]:
+                failures.append(f"studio: waveform did not render ({wave['note']!r})")
 
             # lock the record, then edits must be refused
             page.click("#studio-lock-btn")

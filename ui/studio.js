@@ -15,6 +15,7 @@ const studio = {
   open: false,
   rec: null,          // the Recording currently open
   audio: null,        // the spliced master, as an object URL
+  audioBytes: null,   // the same master, kept for the waveform (see drawWaveform)
   audioEl: null,
   busy: false,
 };
@@ -104,8 +105,13 @@ async function loadMaster() {
       id: studio.rec.id,
       file: "final.wav",
     });
-    const blob = new Blob([new Uint8Array(bytes)], { type: "audio/wav" });
+    const view = new Uint8Array(bytes);
+    const blob = new Blob([view], { type: "audio/wav" });
     studio.audio = URL.createObjectURL(blob);
+    // Keep the raw bytes: the waveform decodes these directly. Re-fetching the
+    // blob: URL is blocked by the packaged CSP (connect-src has no blob:), which
+    // is exactly what made every waveform read "audio could not be decoded".
+    studio.audioBytes = view;
     const el = new Audio();
     el.src = studio.audio;
     el.preload = "metadata";
@@ -124,6 +130,7 @@ async function loadMaster() {
     // no master yet: that is the normal state before the first splice
     studio.audioEl = null;
     studio.audio = null;
+    studio.audioBytes = null;
     S("studio-dur").textContent = "no master yet — splice to hear the whole session";
     S("studio-time").textContent = "0:00 / 0:00";
   }
@@ -137,6 +144,7 @@ function releaseMaster() {
   if (studio.audio) URL.revokeObjectURL(studio.audio);
   studio.audioEl = null;
   studio.audio = null;
+  studio.audioBytes = null;
 }
 
 function setPlayLabel(playing) {
@@ -146,13 +154,19 @@ function setPlayLabel(playing) {
 /* ------------------------------- waveform -------------------------------- */
 
 /* Decode the master with the Web Audio API and draw an RMS envelope. This is
-   presentation only — no audio is modified here. */
+   presentation only — no audio is modified here.
+
+   Decode the bytes we already hold; never re-fetch the blob: URL. The packaged
+   CSP's connect-src permits only `ipc:`/`http://ipc.localhost`, so fetching a
+   blob: URL is blocked and every waveform fell into the catch ("audio could not
+   be decoded") even though the WAV was perfectly valid. decodeAudioData wants a
+   detached ArrayBuffer, so hand it a copy. */
 async function drawWaveform() {
   const host = S("studio-wave");
   host.textContent = "";
-  if (!studio.audio) return;
+  if (!studio.audioBytes || !studio.audioBytes.length) return;
   try {
-    const buf = await (await fetch(studio.audio)).arrayBuffer();
+    const buf = studio.audioBytes.slice().buffer;
     const ctx = new (window.AudioContext || window.webkitAudioContext)();
     const audio = await ctx.decodeAudioData(buf);
     const data = audio.getChannelData(0);
