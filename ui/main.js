@@ -366,11 +366,15 @@ function addMessage(kind, title) {
   const who = document.createElement("div");
   who.className = "who";
   who.textContent = title;
-  const pre = document.createElement("pre");
-  box.append(who, pre);
+  // The body is a `.md` container the markdown renderer fills by building
+  // nodes (never innerHTML). `addInterruption`/legacy line mode still set
+  // textContent directly, which is fine: those paths are plain text.
+  const body = document.createElement("div");
+  body.className = "md";
+  box.append(who, body);
   els.transcript.appendChild(box);
   scrollDown(true);
-  return pre;
+  return body;
 }
 
 /* Interruptions must outlive the 200ms status blip: steer and cancel get a
@@ -401,9 +405,47 @@ let acpAgentPre = null;
 let acpThoughtPre = null;
 let waitingEl = null;
 
+/* Raw markdown accumulated for the current message, re-rendered into the body
+   on a throttled frame. Rendering the WHOLE message each tick (rather than
+   appending spans) is what lets partial markdown settle correctly: a heading
+   split across two chunks becomes a heading once its newline lands. */
+let acpAgentRaw = "";
+let acpThoughtRaw = "";
+
 function clearWaiting() {
   waitingEl?.remove();
   waitingEl = null;
+}
+
+/* Coalesce re-renders to one per frame; the stream can outpace the compositor. */
+function makePainter(body, getText) {
+  let queued = false;
+  return function paint() {
+    if (queued) return;
+    queued = true;
+    requestAnimationFrame(() => {
+      queued = false;
+      const md = window.BBMarkdown;
+      if (md) md.render(body, getText());
+      else body.textContent = getText();
+      scrollDown(false);
+    });
+  };
+}
+let paintAgent = null;
+let paintThought = null;
+
+/* Drop all per-message stream state. Called when the transcript is cleared
+   (new chat / open session / self-heal) so a stale buffer can't bleed into the
+   next message. */
+function resetStream() {
+  currentAgentPre = null;
+  acpAgentPre = null;
+  acpThoughtPre = null;
+  acpAgentRaw = "";
+  acpThoughtRaw = "";
+  paintAgent = null;
+  paintThought = null;
 }
 function showWaiting() {
   if (waitingEl || !acp.turnActive) return;
@@ -418,29 +460,31 @@ function showWaiting() {
 function acpAgentPre_() {
   if (!acpAgentPre) {
     acpThoughtPre = null;
+    acpThoughtRaw = "";
+    acpAgentRaw = "";
     clearWaiting();
     acpAgentPre = addMessage("agent", "grove · " + (acp.model || "agent"));
+    paintAgent = makePainter(acpAgentPre, () => acpAgentRaw);
   }
   return acpAgentPre;
 }
 function acpAppendText(text) {
   if (!text) return;
-  const span = document.createElement("span");
-  span.textContent = text;
-  acpAgentPre_().appendChild(span);
-  scrollDown(false);
+  acpAgentPre_();
+  acpAgentRaw += text;
+  paintAgent();
 }
 function acpAppendThought(text) {
   if (!text) return;
   if (!acpThoughtPre) {
     acpAgentPre = null;
+    acpAgentRaw = "";
     clearWaiting();
     acpThoughtPre = addMessage("thought", "cedar · thinking");
+    paintThought = makePainter(acpThoughtPre, () => acpThoughtRaw);
   }
-  const span = document.createElement("span");
-  span.textContent = text;
-  acpThoughtPre.appendChild(span);
-  scrollDown(false);
+  acpThoughtRaw += text;
+  paintThought();
 }
 
 function acpToolCard(update) {
@@ -1284,8 +1328,8 @@ async function handleAcpEvent(event) {
       if (data && data.ok === false) {
         addMessage("agent", "grove · error").textContent = String(data.error || "turn failed");
       }
-      acpAgentPre = null;
-      acpThoughtPre = null;
+      acpAgentRaw = "";
+      acpThoughtRaw = "";
       clearWaiting();
       acp.turnActive = false;
       toolEls.clear();
@@ -1507,7 +1551,7 @@ async function refreshVersion() {
 async function openSession(s) {
   els.cwd.value = s.cwd;
   els.transcript.innerHTML = "";
-  currentAgentPre = null; acpAgentPre = null; acpThoughtPre = null;
+  resetStream();
   const empty = document.createElement("div");
   empty.className = "empty";
   empty.innerHTML = '<p class="empty-title">Resuming session…</p><p>' +
@@ -1520,7 +1564,7 @@ async function newChat() {
   const cwd = els.cwd.value.trim();
   acp.firstPrompt = null;
   els.transcript.innerHTML = "";
-  currentAgentPre = null; acpAgentPre = null; acpThoughtPre = null;
+  resetStream();
   const empty = document.createElement("div");
   empty.className = "empty";
   empty.innerHTML = '<p class="empty-title">Fresh ground.</p><p>New session in ' +

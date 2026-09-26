@@ -471,8 +471,11 @@ def main() -> int:
             # -- 3. ACP streaming send -------------------------------------
             page.fill("#prompt", "Say the thing.")
             page.click("#send")
+            # NB: the trailing space in the "ACP " chunk is collapsed now that
+            # the body renders as prose (a <p>, not a <pre>). Match the words,
+            # not the raw spacing.
             page.wait_for_function(
-                "() => { const t = document.getElementById('transcript').innerText; return t.includes('ACP ') && t.includes('STREAMING.'); }",
+                "() => { const t = document.getElementById('transcript').innerText; return t.includes('ACP') && t.includes('STREAMING.'); }",
                 timeout=8000,
             )
             page.wait_for_function(
@@ -486,6 +489,87 @@ def main() -> int:
             chip = page.text_content(".msg.tool .chip") or ""
             if chip.strip() != "completed":
                 failures.append(f"tool chip not completed: {chip!r}")
+
+            # -- 3b. markdown rendering of the stream ----------------------
+            # The agent body must render markdown as ELEMENTS, never as literal
+            # text, and never via innerHTML. Exercise the real renderer.
+            md = page.evaluate("""() => {
+              const host = document.createElement('div');
+              host.className = 'md';
+              document.body.appendChild(host);
+              window.BBMarkdown.render(host, [
+                '# Heading one',
+                '',
+                'Plain **bold** and `code` and *italic* here.',
+                '',
+                '- first item',
+                '- second item',
+                '',
+                '1. one',
+                '2. two',
+                '',
+                '```js',
+                'const x = 1;',
+                '```',
+                '',
+                '> quoted line',
+                '',
+                '[repo](https://example.com/x)',
+              ].join('\\n'));
+              const q = (s) => host.querySelector(s);
+              const out = {
+                h1: q('h1.md-h1') ? q('h1.md-h1').textContent : null,
+                strong: q('strong') ? q('strong').textContent : null,
+                em: q('em') ? q('em').textContent : null,
+                code: q('code.md-code') ? q('code.md-code').textContent : null,
+                ul: host.querySelectorAll('ul.md-ul li').length,
+                ol: host.querySelectorAll('ol.md-ol li').length,
+                pre: q('pre.md-pre code') ? q('pre.md-pre code').textContent : null,
+                quote: q('blockquote.md-quote') ? q('blockquote.md-quote').textContent.trim() : null,
+                link: q('a.md-link') ? q('a.md-link').getAttribute('href') : null,
+                // the raw markdown characters must NOT survive as literal text
+                rawLeak: /(^|\\s)#{1,6}\\s|\\*\\*|`/.test(host.innerText),
+              };
+              host.remove();
+              return out;
+            }""")
+            checks = {
+                "h1": ("Heading one", md["h1"]),
+                "strong": ("bold", md["strong"]),
+                "em": ("italic", md["em"]),
+                "inline code": ("code", md["code"]),
+                "ul count": (2, md["ul"]),
+                "ol count": (2, md["ol"]),
+                "fenced code": ("const x = 1;", md["pre"]),
+                "quote": ("quoted line", md["quote"]),
+                "link href": ("https://example.com/x", md["link"]),
+            }
+            for label, (want, got) in checks.items():
+                if got != want:
+                    failures.append(f"markdown {label}: want {want!r}, got {got!r}")
+            if md["rawLeak"]:
+                failures.append("markdown leaked raw syntax into rendered text")
+
+            # XSS discipline: agent text is never HTML. A hostile payload must
+            # come through as inert literal text — no element, no handler.
+            xss = page.evaluate("""() => {
+              const host = document.createElement('div');
+              document.body.appendChild(host);
+              window.BBMarkdown.render(host,
+                '<img src=x onerror=alert(1)> <script>window.__pwned=1<\\/script>');
+              const out = {
+                imgTags: host.querySelectorAll('img').length,
+                scriptTags: host.querySelectorAll('script').length,
+                pwned: !!window.__pwned,
+                text: host.innerText,
+              };
+              host.remove();
+              return out;
+            }""")
+            if xss["imgTags"] or xss["scriptTags"] or xss["pwned"]:
+                failures.append(f"markdown XSS: content became live DOM ({xss})")
+            if "<img" not in (xss["text"] or ""):
+                failures.append("markdown XSS: payload did not render as inert text")
 
             # -- 4. dictation flow (regression) ----------------------------
             page.click("#mic")
