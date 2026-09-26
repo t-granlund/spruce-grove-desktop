@@ -376,6 +376,42 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
     }
 
+    /// REAL Keychain round-trip — ignored by default (writes to the login
+    /// keychain). Run: `cargo test -- --ignored real_keychain_roundtrip`.
+    #[test]
+    #[ignore]
+    fn real_keychain_roundtrip() {
+        // Force the keychain backend by clearing the file overrides.
+        unsafe { std::env::remove_var("GROVE_AUTH_DIR") };
+        unsafe { std::env::remove_var("GROVE_RECORDINGS_DIR") };
+        let _ = std::process::Command::new("security")
+            .args([
+                "delete-generic-password",
+                "-s",
+                KC_SERVICE,
+                "-a",
+                KC_ACCOUNT,
+            ])
+            .output();
+        assert!(!has_pin(), "start clean");
+        set_pin("135791").expect("write to keychain");
+        assert!(has_pin(), "has_pin reads the keychain back");
+        assert!(verify_pin("135791"));
+        assert!(!verify_pin("135792"));
+        let tag = record_tag("body").expect("tag");
+        assert!(tag_matches("body", &tag));
+        let _ = std::process::Command::new("security")
+            .args([
+                "delete-generic-password",
+                "-s",
+                KC_SERVICE,
+                "-a",
+                KC_ACCOUNT,
+            ])
+            .output();
+        assert!(!has_pin(), "cleaned up");
+    }
+
     #[test]
     fn no_key_means_no_vouch() {
         let _g = ENV_GUARD.lock().unwrap_or_else(|e| e.into_inner());
