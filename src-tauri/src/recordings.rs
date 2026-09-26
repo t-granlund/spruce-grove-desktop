@@ -147,6 +147,17 @@ fn valid_take_file(file: &str) -> bool {
         && file != "."
 }
 
+/// Clean text that will be stored and shown: never keep terminal escape codes.
+///
+/// The recorder hands us `--transcribe` output, and the CLI writes a boot color
+/// palette (OSC sequences) ahead of its text. That leaked into a real recording
+/// on 2026-09-25 (a name and transcript of pure `]11;#1a1b26…`). Stripping here,
+/// at the library boundary, means no caller can poison the store — even if a
+/// future transcription path forgets to clean up. Mirrors `strip_ansi`.
+fn clean_text(s: &str) -> String {
+    crate::strip_ansi(s).trim().to_string()
+}
+
 fn now_ms() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
@@ -173,8 +184,52 @@ fn load_index() -> Result<Vec<Recording>, String> {
     // from disk is only trusted if its tag still matches the body. Resolve the
     // owner key ONCE for the whole index (a Keychain read is a subprocess).
     let guard = crate::studio_auth::OwnerGuard::load();
+    let mut healed = false;
     for rec in &mut all {
+        // Self-heal pre-fix data: a transcript/name stored with terminal escape
+        // codes (before `clean_text` existed) is repaired in place, once.
+        let mut record_healed = false;
+        let clean_name = clean_text(&rec.name);
+        if clean_name != rec.name || clean_name.is_empty() {
+            // A name that was PURELY escapes strips to empty; give it a real
+            // name from the (now clean) first take rather than leave a blank.
+            let recovered = rec
+                .takes
+                .first()
+                .map(default_name)
+                .filter(|n| n != "untitled recording")
+                .unwrap_or_default();
+            let chosen = if clean_name.is_empty() {
+                recovered
+            } else {
+                clean_name
+            };
+            if chosen != rec.name {
+                rec.name = chosen;
+                record_healed = true;
+            }
+        }
+        for take in &mut rec.takes {
+            let cleaned = clean_text(&take.transcript);
+            if cleaned != take.transcript {
+                take.transcript = cleaned;
+                record_healed = true;
+            }
+        }
+        // If healing changed a LOCKED record, re-tag it: stripping invisible
+        // escape noise is normalization, not an edit, so it must not raise a
+        // false tamper alarm. A missing key leaves the tag as-is (honest).
+        if record_healed && rec.locked {
+            if let Some(g) = guard.as_ref() {
+                rec.commit_tag = Some(g.tag(&rec.commit_body()));
+            }
+        }
+        healed |= record_healed;
         rec.restamp(guard.as_ref());
+    }
+    if healed {
+        // persist the repair so it isn't recomputed every load
+        let _ = save_index(&all);
     }
     Ok(all)
 }
@@ -261,7 +316,7 @@ pub fn save_take(
         } else {
             0.0
         },
-        transcript: transcript.trim().to_string(),
+        transcript: clean_text(transcript),
     };
 
     let recording = match all.iter_mut().find(|r| r.id == id) {
@@ -274,8 +329,8 @@ pub fn save_take(
             let rec = Recording {
                 id: id.clone(),
                 name: name
-                    .map(str::to_string)
-                    .filter(|n| !n.trim().is_empty())
+                    .map(clean_text)
+                    .filter(|n| !n.is_empty())
                     .unwrap_or_else(|| default_name(&take)),
                 created_ms: now_ms(),
                 updated_ms: now_ms(),
@@ -296,9 +351,10 @@ pub fn save_take(
 }
 
 /// First line of the transcript, trimmed — a name the operator would recognise.
+/// Defensive `clean_text` in case a transcript predates the boundary strip.
 fn default_name(take: &Take) -> String {
-    let first = take
-        .transcript
+    let cleaned = clean_text(&take.transcript);
+    let first = cleaned
         .lines()
         .map(str::trim)
         .find(|l| !l.is_empty())
@@ -350,9 +406,9 @@ pub fn update(id: &str, patch: Patch) -> Result<Recording, String> {
         return Err("this recording is locked — unlock it to edit".into());
     }
     if let Some(name) = patch.name {
-        let trimmed = name.trim();
-        if !trimmed.is_empty() {
-            rec.name = trimmed.to_string();
+        let cleaned = clean_text(&name);
+        if !cleaned.is_empty() {
+            rec.name = cleaned;
         }
     }
     if let Some(summary) = patch.summary {
@@ -372,7 +428,7 @@ pub fn update(id: &str, patch: Patch) -> Result<Recording, String> {
             .takes
             .get_mut(index)
             .ok_or_else(|| format!("no take {index} in {id}"))?;
-        take.transcript = text.trim().to_string();
+        take.transcript = clean_text(&text);
     }
     rec.updated_ms = now_ms();
     rec.restamp(crate::studio_auth::OwnerGuard::load().as_ref());
@@ -754,6 +810,90 @@ mod tests {
             transcript: "\n\n  Plan the Thursday deck  \nmore text".into(),
         };
         assert_eq!(default_name(&take), "Plan the Thursday deck");
+    }
+
+    /// The exact bug reported on 2026-09-25: `--transcribe` output carrying the
+    /// CLI's OSC boot palette landed verbatim in a recording's name+transcript.
+    #[test]
+    fn terminal_escapes_never_reach_the_store() {
+        let _guard = ENV_GUARD.lock().unwrap_or_else(|e| e.into_inner());
+        let home = tmp_home("escapes");
+        let poisoned = "\u{1b}]11;#1a1b26\u{7}\u{1b}]10;#c0caf5\u{7}Real words here.";
+        let (rec, take) = save_take(b"a", "audio/webm", 1.0, poisoned, None, None).expect("save");
+        assert_eq!(take.transcript, "Real words here.");
+        assert!(!rec.name.contains('\u{1b}'), "name must be escape-free");
+        assert_eq!(rec.name, "Real words here.");
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    /// Pre-fix data on disk (escapes already stored) heals on load and is
+    /// persisted, so it does not resurrect each time.
+    #[test]
+    fn load_heals_escapes_left_by_older_versions() {
+        let _guard = ENV_GUARD.lock().unwrap_or_else(|e| e.into_inner());
+        let home = tmp_home("heal");
+        let (rec, _) = save_take(b"a", "audio/webm", 1.0, "clean", None, None).expect("save");
+        let id = rec.id.clone();
+
+        // hand-write the escaped form, as an older build would have. serde
+        // escapes control bytes (\u001b, \u0007), so build the JSON-escaped
+        // form rather than inserting raw control characters.
+        let path = index_path();
+        let raw = std::fs::read_to_string(&path).unwrap();
+        let poisoned_json = "\\u001b]11;#1a1b26\\u0007Recovered text.";
+        let edited = raw.replace("\"clean\"", &format!("\"{poisoned_json}\""));
+        assert!(
+            edited.contains("\\u001b"),
+            "test setup must inject the escape"
+        );
+        std::fs::write(&path, edited).unwrap();
+
+        let got = get(&id).expect("get");
+        assert_eq!(got.name, "Recovered text.");
+        assert_eq!(got.takes[0].transcript, "Recovered text.");
+        // persisted: the file itself no longer carries the escape byte
+        let after = std::fs::read_to_string(&path).unwrap();
+        assert!(!after.contains('\u{1b}'), "heal must be written back");
+
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    /// A name that was PURELY escapes strips to empty — the heal must recover a
+    /// real name from the transcript, not leave a blank row (hit in the wild:
+    /// rec-1a0d91359bf).
+    #[test]
+    fn heal_recovers_a_name_that_was_only_escapes() {
+        let _guard = ENV_GUARD.lock().unwrap_or_else(|e| e.into_inner());
+        let home = tmp_home("heal-name");
+        let (rec, _) = save_take(
+            b"a",
+            "audio/webm",
+            1.0,
+            "Testing this new reporting feature.",
+            None,
+            None,
+        )
+        .expect("save");
+        assert_eq!(rec.name, "Testing this new reporting feature.");
+        let id = rec.id.clone();
+
+        // replace ONLY the name with a pure-escape string, as an older build
+        // stored it (the transcript keeps its real text, so recovery has a
+        // source). parse-mutate-write avoids clobbering the identical transcript.
+        let path = index_path();
+        let mut doc: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).unwrap()).unwrap();
+        doc[0]["name"] = serde_json::Value::String("\u{1b}]11;#1a1b26\u{7}".to_string());
+        std::fs::write(&path, serde_json::to_string_pretty(&doc).unwrap()).unwrap();
+
+        let got = get(&id).expect("get");
+        assert_eq!(
+            got.name, "Testing this new reporting feature.",
+            "an escape-only name must recover from the take"
+        );
+        assert!(!got.name.contains('\u{1b}'));
+
+        let _ = std::fs::remove_dir_all(&home);
     }
 
     #[test]
