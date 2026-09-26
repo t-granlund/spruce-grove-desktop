@@ -906,6 +906,28 @@ def main() -> int:
             if not refused:
                 failures.append("studio: locked recording accepted an edit")
 
+            # unlock must actually work (regression: the summary flush used to
+            # throw on a locked record, so the unlock patch never ran and the
+            # record stayed locked forever)
+            page.click("#studio-lock-btn")
+            page.wait_for_timeout(500)
+            unlocked = page.evaluate("() => Object.values(window.__library)[0].locked")
+            if unlocked:
+                failures.append("studio: unlock did not stick (record still locked)")
+            editable = page.evaluate(
+                "() => !document.getElementById('studio-summary').disabled")
+            if not editable:
+                failures.append("studio: summary still read-only after unlock")
+            # and an edit must now be accepted again
+            accepted = page.evaluate("""async () => {
+              try { await window.__TAURI__.core.invoke('grove_recording_patch',
+                    { id: Object.keys(window.__library)[0], name: 'renamed after unlock' });
+                    return true; }
+              catch (e) { return false; }
+            }""")
+            if not accepted:
+                failures.append("studio: unlocked recording refused a valid edit")
+
             page.click("#studio-close")
             page.wait_for_timeout(200)
             if not page.evaluate("() => document.getElementById('studio-overlay').classList.contains('hidden')"):

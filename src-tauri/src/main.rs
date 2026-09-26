@@ -379,7 +379,11 @@ fn grove_transcribe(file: String) -> Result<String, String> {
             err.trim().to_string()
         });
     }
-    let text = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    // `--transcribe` writes the same OSC boot palette ahead of its text that
+    // `--version` does. Without stripping, the palette lands verbatim in the
+    // prompt (the dry run showed `]11;#1a1b26]10;#c0caf5…` in the transcript).
+    let raw = String::from_utf8_lossy(&output.stdout);
+    let text = strip_ansi(&raw).trim().to_string();
     if text.is_empty() {
         Err("transcript came back empty".to_string())
     } else {
@@ -593,6 +597,18 @@ mod tests {
     #[test]
     fn strip_ansi_drops_mid_line_color_switches() {
         assert_eq!(strip_ansi("a\u{1b}[1;33mb\u{1b}[0mc"), "abc");
+    }
+
+    /// `--transcribe` prepends the same OSC boot palette as `--version`. The
+    /// transcript must arrive clean; the dry run showed the palette verbatim in
+    /// the prompt. This pins the strip the command now applies.
+    #[test]
+    fn transcribe_output_is_ansi_free() {
+        let line = "\u{1b}]11;#1a1b26\u{7}\u{1b}]10;#c0caf5\u{7}Launch the desktop dictation loop.";
+        assert_eq!(
+            strip_ansi(line).trim(),
+            "Launch the desktop dictation loop."
+        );
     }
 
     #[test]

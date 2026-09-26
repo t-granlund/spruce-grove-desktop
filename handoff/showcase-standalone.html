@@ -2343,12 +2343,20 @@ async function doSplice() {
 
 async function toggleLock() {
   if (!studio.rec) return;
+  const unlocking = studio.rec.locked;
   try {
-    // flush the summary before locking so the record captures what is on screen
-    await invoke("grove_recording_patch", {
-      id: studio.rec.id,
-      summary: S("studio-summary").value,
-    });
+    // Flush the summary before LOCKING so the record captures what is on
+    // screen. Never flush while unlocking: a locked record refuses every patch
+    // except `locked: false`, so the flush would throw and the unlock itself
+    // would never run — which is exactly how "unlock did nothing" happened.
+    // On unlock the summary field is read-only anyway, so there is nothing to
+    // flush.
+    if (!unlocking) {
+      await invoke("grove_recording_patch", {
+        id: studio.rec.id,
+        summary: S("studio-summary").value,
+      });
+    }
     studio.rec = await invoke("grove_recording_patch", {
       id: studio.rec.id,
       locked: !studio.rec.locked,
