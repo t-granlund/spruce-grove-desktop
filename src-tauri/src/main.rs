@@ -18,6 +18,13 @@ mod inspector;
 mod ledger;
 mod project;
 mod recordings;
+mod studio_auth;
+
+/// One process-wide lock for tests that mutate environment variables (library
+/// and auth dirs). Env vars are global, so every test module must share this
+/// one guard — per-module mutexes would let two suites stomp each other.
+#[cfg(test)]
+pub(crate) static TEST_ENV_GUARD: std::sync::Mutex<()> = std::sync::Mutex::new(());
 
 struct ActiveRun(Mutex<Option<Child>>);
 
@@ -561,6 +568,9 @@ fn main() {
             recordings::grove_recording_get,
             recordings::grove_recording_audio,
             recordings::grove_recording_patch,
+            recordings::grove_recording_unlock,
+            recordings::grove_studio_has_pin,
+            recordings::grove_studio_set_pin,
             recordings::grove_recording_drop,
             recordings::grove_recording_drop_take,
             recordings::grove_recording_splice,

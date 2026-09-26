@@ -122,6 +122,23 @@ window.__TAURI__ = {
       // ---- the recording library (studio) ------------------------------
       // A faithful in-memory stand-in: takes append, order is explicit,
       // lock is enforced, and splice renumbers. Mirrors recordings.rs.
+      // Owner-PIN state for this session: hasPin + the PIN itself. Initialize
+      // ONCE (this handler runs on every invoke, so a bare assignment here
+      // would reset the PIN on each call).
+      if (window.__studioHasPin === undefined) {
+        window.__studioHasPin = false;
+        window.__studioPin = null;
+      }
+      if (cmd === "grove_studio_has_pin") {
+        return window.__studioHasPin;
+      }
+      if (cmd === "grove_studio_set_pin") {
+        if (window.__studioHasPin) throw new Error("an owner PIN is already set");
+        if (!args.pin || args.pin.length < 4) throw new Error("PIN must be at least 4 characters");
+        window.__studioHasPin = true;
+        window.__studioPin = args.pin;
+        return null;
+      }
       if (cmd === "grove_library_takes") {
         const id = args.recordingId || "rec-mock";
         let rec = window.__library[id];
@@ -176,12 +193,27 @@ window.__TAURI__ = {
         const rec = window.__library[args.id];
         if (!rec) throw new Error("no recording " + args.id);
         if (rec.locked && args.locked !== false) throw new Error("locked");
+        if (rec.locked && args.locked === false) {
+          // mirrors recordings.rs: unlock through the plain patch path is only
+          // allowed when NO owner PIN is set
+          if (window.__studioHasPin) throw new Error("unlock requires the owner PIN");
+          rec.locked = false; delete rec.commit_tag;
+        }
         if (args.name) rec.name = args.name;
         if (args.summary !== undefined) rec.summary = args.summary;
-        if (args.locked !== undefined) rec.locked = args.locked;
+        if (args.locked === true) { rec.locked = true; if (window.__studioHasPin) rec.commit_tag = "mock"; }
         if (args.takeIndex !== undefined && args.transcript !== undefined) {
           rec.takes[args.takeIndex].transcript = args.transcript;
         }
+        rec.updated_ms++;
+        return JSON.parse(JSON.stringify(rec));
+      }
+      if (cmd === "grove_recording_unlock") {
+        const rec = window.__library[args.id];
+        if (!rec) throw new Error("no recording " + args.id);
+        if (!window.__studioHasPin) throw new Error("no owner PIN is set");
+        if (args.pin !== window.__studioPin) throw new Error("wrong PIN");
+        rec.locked = false; delete rec.commit_tag; rec.tampered = false;
         rec.updated_ms++;
         return JSON.parse(JSON.stringify(rec));
       }
@@ -917,9 +949,23 @@ def main() -> int:
             if not wave["canvas"]:
                 failures.append(f"studio: waveform did not render ({wave['note']!r})")
 
-            # lock the record, then edits must be refused
+            # --- lock: the first lock offers to set an owner PIN ----------
             page.click("#studio-lock-btn")
+            page.wait_for_selector("#studio-pin:not(.hidden)", timeout=4000)
+            # wrong-length PIN is refused by the bridge, modal stays up
+            page.eval_on_selector("#studio-pin-input",
+                                  "el => { el.value = '12'; }")
+            page.click("#studio-pin-ok")
+            page.wait_for_timeout(200)
+            if not page.evaluate("() => !document.getElementById('studio-pin').classList.contains('hidden')"):
+                failures.append("studio: PIN modal closed on an invalid PIN")
+            # set a real PIN and confirm
+            page.eval_on_selector("#studio-pin-input", "el => { el.value = '246810'; }")
+            page.click("#studio-pin-ok")
             page.wait_for_timeout(500)
+            has_pin = page.evaluate("() => window.__studioHasPin")
+            if not has_pin:
+                failures.append("studio: owner PIN was not set on first lock")
             locked = page.evaluate("() => Object.values(window.__library)[0].locked")
             if not locked:
                 failures.append("studio: lock did not stick")
@@ -936,14 +982,27 @@ def main() -> int:
             if not refused:
                 failures.append("studio: locked recording accepted an edit")
 
-            # unlock must actually work (regression: the summary flush used to
-            # throw on a locked record, so the unlock patch never ran and the
-            # record stayed locked forever)
+            # --- unlock: PIN is required (regression: unlock used to be
+            # structurally impossible because the summary flush threw) --------
             page.click("#studio-lock-btn")
+            page.wait_for_selector("#studio-pin:not(.hidden)", timeout=4000)
+            # wrong PIN leaves it locked
+            page.eval_on_selector("#studio-pin-input", "el => { el.value = '000000'; }")
+            page.click("#studio-pin-ok")
+            page.wait_for_timeout(400)
+            still_locked = page.evaluate("() => Object.values(window.__library)[0].locked")
+            pin_err = page.evaluate("() => document.getElementById('studio-pin-err').textContent")
+            if not still_locked:
+                failures.append("studio: wrong PIN unlocked the record")
+            if not pin_err:
+                failures.append("studio: wrong PIN showed no error")
+            # right PIN unlocks
+            page.eval_on_selector("#studio-pin-input", "el => { el.value = '246810'; }")
+            page.click("#studio-pin-ok")
             page.wait_for_timeout(500)
             unlocked = page.evaluate("() => Object.values(window.__library)[0].locked")
             if unlocked:
-                failures.append("studio: unlock did not stick (record still locked)")
+                failures.append("studio: correct PIN did not unlock (record still locked)")
             editable = page.evaluate(
                 "() => !document.getElementById('studio-summary').disabled")
             if not editable:
@@ -957,6 +1016,20 @@ def main() -> int:
             }""")
             if not accepted:
                 failures.append("studio: unlocked recording refused a valid edit")
+
+            # --- tamper banner: a locked record whose signature went stale ----
+            page.evaluate("""() => {
+              const r = Object.values(window.__library)[0];
+              r.locked = true; r.commit_tag = 'mock'; r.tampered = true;
+            }""")
+            page.evaluate("() => window.groveStudio.refresh()")
+            page.wait_for_timeout(300)
+            page.click("#studio-recordings .studio-row")
+            page.wait_for_timeout(300)
+            banner = page.evaluate(
+                "() => !document.getElementById('studio-tamper').classList.contains('hidden')")
+            if not banner:
+                failures.append("studio: tampered record did not show the warning banner")
 
             page.click("#studio-close")
             page.wait_for_timeout(200)

@@ -163,14 +163,30 @@ remote half's job locally.**
 
 ## 7. Build order (smallest honest step first)
 
-1. **Done today:** unlock actually works; transcribe is ANSI-clean.
-2. **Next (small, local):** owner-PIN unlock via Keychain + `grove_recording_unlock`
-   + ledger entry + the lock→unlock UI modal. ~1 focused session.
-3. **Then:** HMAC-on-lock + the "changed since committed" red state.
-4. **Then:** locked-overview dashboard (bead `-0bu`) shows provenance
+1. **DONE:** unlock actually works; transcribe is ANSI-clean; the master WAV
+   decodes under the packaged CSP (all three were real bugs from the dry run).
+2. **DONE:** owner-PIN unlock — `studio_auth.rs` (PBKDF2-HMAC-SHA256 verifier +
+   random HMAC key in the macOS Keychain), `grove_recording_unlock` /
+   `grove_studio_has_pin` / `grove_studio_set_pin`, the PIN modal (set on first
+   lock, required to unlock), and a ledger receipt on unlock.
+3. **DONE:** HMAC-on-lock + the "changed since committed" banner — a locked
+   record edited on disk now reads back `tampered` and shows a warning instead
+   of silently trusting the file.
+4. **Next:** locked-overview dashboard (bead `-0bu`) shows provenance
    (last commit, author, signature) read-only via `gh`.
 5. **Later:** a CI check that verifies committed-record HMACs (where OIDC, if
    ever, fits).
+
+Implementation notes worth keeping:
+- The PIN is stored **only** as a PBKDF2 verifier; the HMAC key is separate and
+  random, so knowing the verifier never reveals the tagging key.
+- The Keychain item is `spruce-grove-desktop.studio-owner` (verified writable
+  via `security add-generic-password -U` on this box). Non-macOS / no-Keychain
+  falls back to a **0600 file** and says so — weaker, and documented as weaker.
+- `GROVE_PBKDF2_ITERS` lowers the iteration count **only** on the file backend
+  (tests/scripts); the Keychain backend is pinned at 600k.
+- A whole library restamps with **one** Keychain read (`OwnerGuard`), not one
+  subprocess per record.
 
 ## 8. What I could NOT verify (do not present as fact)
 

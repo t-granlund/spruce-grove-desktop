@@ -670,6 +670,39 @@ body::before {
   text-transform: uppercase; letter-spacing: .1em;
 }
 .studio-lock[data-state="on"] { color: var(--cedar); }
+.studio-tamper {
+  margin: 0 0 12px; padding: 9px 12px; border-radius: 8px;
+  border: 1px solid var(--err, #C97A5A);
+  background: rgba(201, 122, 90, .12);
+  color: var(--err, #C97A5A); font-size: 12.5px; line-height: 1.5;
+}
+.studio-tamper.hidden { display: none; }
+.studio-pin {
+  position: absolute; inset: 0; z-index: 5;
+  background: rgba(8, 11, 9, .78);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+}
+.studio-pin.hidden { display: none; }
+.studio-pin-box {
+  width: min(360px, 100%);
+  background: var(--panel, #141A15);
+  border: 1px solid var(--line); border-radius: 12px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, .55);
+  padding: 22px 22px 18px; display: flex; flex-direction: column; gap: 10px;
+}
+.studio-pin-title {
+  font-family: var(--mono); letter-spacing: .18em; text-transform: uppercase;
+  font-size: 12px; color: var(--cedar);
+}
+.studio-pin-hint { margin: 0; font-size: 13px; color: var(--dim); line-height: 1.5; }
+.studio-pin-input {
+  background: rgba(0, 0, 0, .3); border: 1px solid var(--line);
+  border-radius: 8px; padding: 10px 12px; color: inherit;
+  font-family: var(--mono); font-size: 16px; letter-spacing: .2em;
+}
+.studio-pin-input:focus { outline: none; border-color: var(--cedar); }
+.studio-pin-err { min-height: 15px; font-size: 12.5px; color: var(--err, #C97A5A); }
+.studio-pin-actions { display: flex; justify-content: flex-end; gap: 10px; }
 .studio-player {
   display: flex; align-items: center; gap: 12px; margin: 14px 0 8px;
 }

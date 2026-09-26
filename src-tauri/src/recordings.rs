@@ -50,7 +50,50 @@ pub struct Recording {
     pub summary: String,
     /// Locked means "this is what was committed" — the UI goes read-only.
     pub locked: bool,
+    /// HMAC of the committed body, written when the record is locked. A locked
+    /// record whose tag no longer matches was edited outside the app.
+    #[serde(default)]
+    pub commit_tag: Option<String>,
+    /// Derived on load, never persisted: is a locked record's tag stale? True
+    /// means "someone changed the file since it was committed" (tamper-evident,
+    /// not tamper-proof — see studio_auth.rs).
+    #[serde(default, skip_deserializing)]
+    pub tampered: bool,
     pub takes: Vec<Take>,
+}
+
+impl Recording {
+    /// The bytes the commit tag covers: everything that IS the record. Excludes
+    /// the tag itself and the derived flag, so the HMAC is stable.
+    fn commit_body(&self) -> String {
+        let view = serde_json::json!({
+            "id": self.id,
+            "name": self.name,
+            "summary": self.summary,
+            "created_ms": self.created_ms,
+            "takes": self.takes,
+        });
+        view.to_string()
+    }
+
+    /// Recompute `tampered`. Only a *locked* record under an owner PIN can be
+    /// tampered with: with no PIN, "locked" is pure UI state and we claim
+    /// nothing. Under a PIN, a locked record whose tag is missing or stale
+    /// means the file was edited outside the app. `guard` is resolved once by
+    /// the caller so a whole index costs one Keychain read, not one per record.
+    fn restamp(&mut self, guard: Option<&crate::studio_auth::OwnerGuard>) {
+        self.tampered = if !self.locked {
+            false
+        } else {
+            match (guard, self.commit_tag.as_deref()) {
+                (Some(g), Some(tag)) => !g.matches(&self.commit_body(), tag),
+                // locked under a PIN but never vouched for
+                (Some(_), None) => true,
+                // no PIN: no key to vouch with, claim nothing
+                (None, _) => false,
+            }
+        };
+    }
 }
 
 /// A partial update; every field is optional so one command covers the lot.
@@ -124,7 +167,16 @@ fn load_index() -> Result<Vec<Recording>, String> {
     if text.trim().is_empty() {
         return Ok(Vec::new());
     }
-    serde_json::from_str(&text).map_err(|e| format!("index.json is not valid: {e}"))
+    let mut all: Vec<Recording> =
+        serde_json::from_str(&text).map_err(|e| format!("index.json is not valid: {e}"))?;
+    // Freshly recompute tamper state on every load: a locked record read back
+    // from disk is only trusted if its tag still matches the body. Resolve the
+    // owner key ONCE for the whole index (a Keychain read is a subprocess).
+    let guard = crate::studio_auth::OwnerGuard::load();
+    for rec in &mut all {
+        rec.restamp(guard.as_ref());
+    }
+    Ok(all)
 }
 
 /// Write the index atomically: a crash mid-write must never eat the library.
@@ -229,6 +281,8 @@ pub fn save_take(
                 updated_ms: now_ms(),
                 summary: String::new(),
                 locked: false,
+                commit_tag: None,
+                tampered: false,
                 takes: vec![take.clone()],
             };
             all.push(rec.clone());
@@ -271,10 +325,28 @@ pub fn get(id: &str) -> Result<Recording, String> {
 }
 
 /// Apply a partial update (rename, summary, lock, or a transcript edit).
+///
+/// LOCKING is free and anyone may do it — locking is the safe direction, and a
+/// locked record is tagged with an HMAC so a later out-of-band edit is visible.
+/// UNLOCKING is the owner's call: with an owner PIN set, this path REFUSES
+/// `locked:false`; use `unlock()` with the PIN instead.
 pub fn update(id: &str, patch: Patch) -> Result<Recording, String> {
     let mut all = load_index()?;
     let rec = find(&mut all, id)?;
-    if rec.locked && patch.locked != Some(false) {
+    if rec.locked {
+        // Unlock is free UNLESS an owner PIN is set — with no PIN, "locked" is
+        // pure UI state and requiring a PIN would brick the record. With a PIN,
+        // unlocking must go through `unlock()`.
+        if patch.locked == Some(false) && !crate::studio_auth::has_pin() {
+            rec.locked = false;
+            rec.updated_ms = now_ms();
+            let out = rec.clone();
+            save_index(&all)?;
+            return Ok(out);
+        }
+        if patch.locked == Some(false) {
+            return Err("unlock requires the owner PIN — use the unlock command".into());
+        }
         return Err("this recording is locked — unlock it to edit".into());
     }
     if let Some(name) = patch.name {
@@ -286,8 +358,14 @@ pub fn update(id: &str, patch: Patch) -> Result<Recording, String> {
     if let Some(summary) = patch.summary {
         rec.summary = summary;
     }
-    if let Some(locked) = patch.locked {
-        rec.locked = locked;
+    if patch.locked == Some(true) {
+        // Commit: freeze the body and tag it. A PIN is required so the tag has
+        // a key; without one, locking stays pure UI state (tag None).
+        if crate::studio_auth::has_pin() {
+            let tag = crate::studio_auth::record_tag(&rec.commit_body())?;
+            rec.commit_tag = Some(tag);
+        }
+        rec.locked = true;
     }
     if let (Some(index), Some(text)) = (patch.take_index, patch.transcript) {
         let take = rec
@@ -296,6 +374,31 @@ pub fn update(id: &str, patch: Patch) -> Result<Recording, String> {
             .ok_or_else(|| format!("no take {index} in {id}"))?;
         take.transcript = text.trim().to_string();
     }
+    rec.updated_ms = now_ms();
+    rec.restamp(crate::studio_auth::OwnerGuard::load().as_ref());
+    let out = rec.clone();
+    save_index(&all)?;
+    Ok(out)
+}
+
+/// Unlock a committed record with the owner PIN. Refused when no PIN is set
+/// (nothing to verify against) or the PIN is wrong. Every success clears the
+/// tag so the next lock re-tags a fresh body.
+pub fn unlock(id: &str, pin: &str) -> Result<Recording, String> {
+    if !crate::studio_auth::has_pin() {
+        return Err("no owner PIN is set — set one to lock records".into());
+    }
+    if !crate::studio_auth::verify_pin(pin) {
+        return Err("wrong PIN".into());
+    }
+    let mut all = load_index()?;
+    let rec = find(&mut all, id)?;
+    if !rec.locked {
+        return Err("this recording is not locked".into());
+    }
+    rec.locked = false;
+    rec.commit_tag = None;
+    rec.tampered = false;
     rec.updated_ms = now_ms();
     let out = rec.clone();
     save_index(&all)?;
@@ -555,6 +658,23 @@ pub fn grove_recording_patch(
 }
 
 #[tauri::command]
+pub fn grove_recording_unlock(id: String, pin: String) -> Result<Recording, String> {
+    unlock(&id, &pin)
+}
+
+/// Is an owner PIN set? The UI shows the "set a PIN" flow when false.
+#[tauri::command]
+pub fn grove_studio_has_pin() -> bool {
+    crate::studio_auth::has_pin()
+}
+
+/// Set the owner PIN once. Refused if one already exists.
+#[tauri::command]
+pub fn grove_studio_set_pin(pin: String) -> Result<(), String> {
+    crate::studio_auth::set_pin(&pin)
+}
+
+#[tauri::command]
 pub fn grove_recording_drop(id: String) -> Result<(), String> {
     delete(&id)
 }
@@ -578,15 +698,21 @@ pub fn grove_recording_export(id: String) -> Result<String, String> {
 mod tests {
     use super::*;
 
-    /// Guard for tests that point the library at a temp dir. Held across the
-    /// whole test body so cargo's parallel runner can't interleave two
-    /// different roots through one process-wide env var.
-    static ENV_GUARD: std::sync::Mutex<()> = std::sync::Mutex::new(());
+    /// The crate-wide env guard: these tests point the library at a temp dir
+    /// through process-global env vars, so they must serialize with the auth
+    /// module's tests too (both mutate the same vars).
+    use crate::TEST_ENV_GUARD;
+    static ENV_GUARD: &std::sync::Mutex<()> = &TEST_ENV_GUARD;
 
     fn tmp_home(tag: &str) -> PathBuf {
         let dir = std::env::temp_dir().join(format!("sg-rec-{tag}-{}", now_ms()));
         std::fs::create_dir_all(&dir).unwrap();
         unsafe { std::env::set_var("GROVE_RECORDINGS_DIR", &dir) };
+        // Point auth at the same temp dir, so these tests use the file backend
+        // and never touch the real login keychain.
+        unsafe { std::env::set_var("GROVE_AUTH_DIR", &dir) };
+        // keep PBKDF2 cheap on the throwaway backend (production is unaffected)
+        unsafe { std::env::set_var("GROVE_PBKDF2_ITERS", "1000") };
         dir
     }
 
@@ -733,6 +859,119 @@ mod tests {
         // delete removes the recording from the index
         delete(&id).expect("delete");
         assert!(list().expect("list").is_empty());
+
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    /// With an owner PIN set: locking tags the record, the plain patch path
+    /// refuses to unlock, a wrong PIN is refused, and the right PIN unlocks.
+    #[test]
+    fn pin_gates_unlock_when_set() {
+        let _guard = ENV_GUARD.lock().unwrap_or_else(|e| e.into_inner());
+        let home = tmp_home("pin-gate");
+        crate::studio_auth::set_pin("246810").expect("set pin");
+
+        let (rec, _) = save_take(b"a", "audio/webm", 1.0, "hello", None, None).expect("save");
+        let id = rec.id.clone();
+
+        let locked = update(
+            &id,
+            Patch {
+                locked: Some(true),
+                ..Default::default()
+            },
+        )
+        .expect("lock");
+        assert!(locked.locked);
+        assert!(locked.commit_tag.is_some(), "locking under a PIN must tag");
+        assert!(!locked.tampered);
+
+        // the patch path refuses to unlock while a PIN exists
+        assert!(update(
+            &id,
+            Patch {
+                locked: Some(false),
+                ..Default::default()
+            }
+        )
+        .is_err());
+
+        // wrong PIN refused, record stays locked
+        assert!(unlock(&id, "000000").is_err());
+        assert!(get(&id).expect("get").locked);
+
+        // right PIN unlocks and clears the tag
+        let open = unlock(&id, "246810").expect("unlock");
+        assert!(!open.locked);
+        assert!(open.commit_tag.is_none());
+
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    /// Tamper-evidence: a locked record edited on disk (behind the app's back)
+    /// reads back as `tampered`, and the change survives a fresh load.
+    #[test]
+    fn out_of_band_edit_is_detected() {
+        let _guard = ENV_GUARD.lock().unwrap_or_else(|e| e.into_inner());
+        let home = tmp_home("tamper");
+        crate::studio_auth::set_pin("246810").expect("set pin");
+
+        let (rec, _) = save_take(b"a", "audio/webm", 1.0, "original", None, None).expect("save");
+        let id = rec.id.clone();
+        update(
+            &id,
+            Patch {
+                locked: Some(true),
+                ..Default::default()
+            },
+        )
+        .expect("lock");
+        assert!(!get(&id).expect("get").tampered);
+
+        // hand-edit the on-disk body, as a text editor would
+        let path = index_path();
+        let raw = std::fs::read_to_string(&path).unwrap();
+        let edited = raw.replace("original", "EDITED OUT OF BAND");
+        assert_ne!(raw, edited);
+        std::fs::write(&path, edited).unwrap();
+
+        let after = get(&id).expect("get");
+        assert!(after.locked, "still marked locked");
+        assert!(after.tampered, "a changed body must be flagged tampered");
+
+        let _ = std::fs::remove_dir_all(&home);
+    }
+
+    /// Regression guard: with NO owner PIN, lock must stay pure UI state, so a
+    /// plain unlock still works (requiring a PIN would brick the record).
+    #[test]
+    fn no_pin_keeps_unlock_free() {
+        let _guard = ENV_GUARD.lock().unwrap_or_else(|e| e.into_inner());
+        let home = tmp_home("no-pin");
+        assert!(!crate::studio_auth::has_pin());
+
+        let (rec, _) = save_take(b"a", "audio/webm", 1.0, "x", None, None).expect("save");
+        let id = rec.id.clone();
+        let locked = update(
+            &id,
+            Patch {
+                locked: Some(true),
+                ..Default::default()
+            },
+        )
+        .expect("lock");
+        assert!(locked.locked);
+        assert!(locked.commit_tag.is_none(), "no PIN -> no tag");
+
+        let open = update(
+            &id,
+            Patch {
+                locked: Some(false),
+                ..Default::default()
+            },
+        )
+        .expect("free unlock without a PIN");
+        assert!(!open.locked);
 
         let _ = std::fs::remove_dir_all(&home);
     }

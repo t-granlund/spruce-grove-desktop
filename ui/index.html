@@ -252,6 +252,7 @@
                 <input id="studio-name" class="studio-name" type="text" spellcheck="false" aria-label="recording name">
                 <span id="studio-lock" class="studio-lock"></span>
               </div>
+              <div id="studio-tamper" class="studio-tamper hidden" role="alert"></div>
               <div id="studio-player" class="studio-player">
                 <button id="studio-play" class="btn ghost" aria-label="play the spliced recording">play</button>
                 <span id="studio-time" class="studio-time">0:00 / 0:00</span>
@@ -274,6 +275,20 @@
         <div class="pk-foot">
           <span class="pk-status" id="studio-status"></span>
           <button class="btn ghost" id="studio-record-more">record another take</button>
+        </div>
+      </div>
+      <!-- owner-PIN gate: set on first lock, required to unlock -->
+      <div id="studio-pin" class="studio-pin hidden" role="dialog" aria-modal="true" aria-label="owner PIN">
+        <div class="studio-pin-box">
+          <span class="studio-pin-title" id="studio-pin-title">owner PIN</span>
+          <p class="studio-pin-hint" id="studio-pin-hint"></p>
+          <input id="studio-pin-input" class="studio-pin-input" type="password" inputmode="numeric"
+                 autocomplete="off" spellcheck="false" aria-label="owner PIN">
+          <span class="studio-pin-err" id="studio-pin-err" role="alert"></span>
+          <div class="studio-pin-actions">
+            <button class="btn ghost" id="studio-pin-cancel">cancel</button>
+            <button class="btn solid" id="studio-pin-ok">confirm</button>
+          </div>
         </div>
       </div>
     </div>

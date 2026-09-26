@@ -210,6 +210,16 @@ function renderRecording() {
   S("studio-lock-btn").textContent = r.locked ? "unlock" : "lock the record";
   S("studio-lock").textContent = r.locked ? "locked — this is the committed record" : "";
   S("studio-lock").dataset.state = r.locked ? "on" : "";
+  // tamper banner: the file changed under a committed record (see studio_auth)
+  const tamper = S("studio-tamper");
+  if (r.tampered) {
+    tamper.textContent =
+      "⚠ this committed record was changed outside the app — its signature no longer matches. " +
+      "Unlock with the owner PIN to re-commit it deliberately.";
+    tamper.classList.remove("hidden");
+  } else {
+    tamper.classList.add("hidden");
+  }
   S("studio-count").textContent = "(" + r.takes.length + ")";
 
   const host = S("studio-takes");
@@ -337,32 +347,109 @@ async function doSplice() {
   }
 }
 
-async function toggleLock() {
-  if (!studio.rec) return;
-  const unlocking = studio.rec.locked;
+/* ------------------------------ owner PIN -------------------------------- */
+/*
+   Locking is free; unlocking is the owner's call. The first lock on a library
+   with no PIN prompts to set one (owner-PIN modal). After that, unlocking a
+   committed record requires that PIN — and the Rust side enforces it, so a
+   hand-edit to index.json cannot quietly reopen the record.
+*/
+
+let pinFlow = null; // { mode: "set" | "unlock" } while the modal is up
+
+function showPinModal(mode) {
+  pinFlow = { mode };
+  const set = mode === "set";
+  S("studio-pin-title").textContent = set ? "set owner PIN" : "owner PIN";
+  S("studio-pin-hint").textContent = set
+    ? "Locks are free, but unlocking will require this PIN. It is stored in your macOS Keychain — never in the record file. Choose at least 4 characters."
+    : "This record is committed. Enter the owner PIN to unlock and edit it.";
+  S("studio-pin-input").value = "";
+  S("studio-pin-err").textContent = "";
+  S("studio-pin-ok").textContent = set ? "set PIN" : "unlock";
+  S("studio-pin").classList.remove("hidden");
+  S("studio-pin-input").focus();
+}
+
+function hidePinModal() {
+  pinFlow = null;
+  S("studio-pin").classList.add("hidden");
+  S("studio-pin-input").value = "";
+}
+
+async function doPinConfirm() {
+  if (!pinFlow) return;
+  const pin = S("studio-pin-input").value;
+  if (!pin) {
+    S("studio-pin-err").textContent = "enter a PIN";
+    return;
+  }
+  const mode = pinFlow.mode;
   try {
-    // Flush the summary before LOCKING so the record captures what is on
-    // screen. Never flush while unlocking: a locked record refuses every patch
-    // except `locked: false`, so the flush would throw and the unlock itself
-    // would never run — which is exactly how "unlock did nothing" happened.
-    // On unlock the summary field is read-only anyway, so there is nothing to
-    // flush.
-    if (!unlocking) {
-      await invoke("grove_recording_patch", {
-        id: studio.rec.id,
-        summary: S("studio-summary").value,
-      });
+    if (mode === "set") {
+      await invoke("grove_studio_set_pin", { pin });
+      hidePinModal();
+      // now actually perform the lock the user asked for
+      await commitLock();
+    } else {
+      studio.rec = await invoke("grove_recording_unlock", { id: studio.rec.id, pin });
+      hidePinModal();
+      renderRecording();
+      await studioRefresh();
+      studioStatus("unlocked for editing");
+      recordUnlock(studio.rec.id);
     }
+  } catch (err) {
+    S("studio-pin-err").textContent = String(err).split("\n")[0] || "could not verify";
+  }
+}
+
+/* Flush the summary, then lock. Never run while unlocking. */
+async function commitLock() {
+  try {
+    await invoke("grove_recording_patch", {
+      id: studio.rec.id,
+      summary: S("studio-summary").value,
+    });
     studio.rec = await invoke("grove_recording_patch", {
       id: studio.rec.id,
-      locked: !studio.rec.locked,
+      locked: true,
     });
     renderRecording();
     await studioRefresh();
-    studioStatus(studio.rec.locked ? "locked — the record is committed" : "unlocked for editing");
+    studioStatus("locked — the record is committed");
   } catch (err) {
     studioStatus("could not lock: " + String(err).split("\n")[0]);
   }
+}
+
+async function toggleLock() {
+  if (!studio.rec) return;
+  if (studio.rec.locked) {
+    // unlocking always needs the owner PIN
+    showPinModal("unlock");
+    return;
+  }
+  // first-ever lock offers to set a PIN; without one, target="_free" mode
+  let hasPin = false;
+  try { hasPin = await invoke("grove_studio_has_pin"); } catch (_) {}
+  if (!hasPin) {
+    showPinModal("set");
+    return;
+  }
+  await commitLock();
+}
+
+/* Record the unlock in the audit ledger (receipts, not a gate). */
+function recordUnlock(id) {
+  try {
+    invoke("grove_ledger_record", {
+      kind: "studio",
+      cwd: "",
+      summary: "unlocked committed record " + id,
+      outcome: "owner-pin",
+    }).catch(() => {});
+  } catch (_) { /* ledger is best-effort */ }
 }
 
 async function doExport() {
@@ -433,6 +520,11 @@ function studioWire() {
   });
   S("studio-splice").addEventListener("click", doSplice);
   S("studio-lock-btn").addEventListener("click", toggleLock);
+  S("studio-pin-ok").addEventListener("click", doPinConfirm);
+  S("studio-pin-cancel").addEventListener("click", hidePinModal);
+  S("studio-pin-input").addEventListener("keydown", (ev) => {
+    if (ev.key === "Enter") { ev.preventDefault(); doPinConfirm(); }
+  });
   S("studio-export").addEventListener("click", doExport);
   S("studio-name").addEventListener("blur", saveName);
   S("studio-summary").addEventListener("blur", saveSummary);
@@ -442,7 +534,10 @@ function studioWire() {
     if (window.groveRecordMore) window.groveRecordMore();
   });
   document.addEventListener("keydown", (ev) => {
-    if (ev.key === "Escape" && studio.open) { closeStudio(); }
+    if (ev.key !== "Escape" || !studio.open) return;
+    // the PIN modal owns Escape while it is up (closing it, not the studio)
+    if (pinFlow) { hidePinModal(); return; }
+    closeStudio();
   });
 }
 
